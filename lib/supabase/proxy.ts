@@ -1,8 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import { routeMode } from "./route-mode";
 
 export async function updateSession(request: NextRequest) {
+  // Deployment-mode isolation (ADR-0007): with NEXT_PUBLIC_APP_MODE set, each
+  // host serves only its own surface — the storefront blocks /admin and
+  // /auth/*, the admin host blocks everything else. Blocked requests get a
+  // real 404 before any session work runs. Unset keeps single-deployment
+  // behaviour (the storefront and admin coexist as today).
+  if (routeMode(request.nextUrl.pathname, process.env.NEXT_PUBLIC_APP_MODE) === "block") {
+    return new NextResponse(null, { status: 404 });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -47,13 +57,10 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
-  if (
-    request.nextUrl.pathname !== "/" &&
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  // The storefront is public (ADR-0001): guests browse the catalog and check
+  // out without an account, so only /admin is gated here. AdminGate re-checks
+  // the `role: admin` claim server-side on every admin route (ticket 07).
+  if (request.nextUrl.pathname.startsWith("/admin") && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
