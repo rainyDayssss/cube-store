@@ -7,7 +7,8 @@ import {
   Users,
 } from "lucide-react";
 import { KpiCard } from "@/features/admin/components/kpi-card";
-import { getAdminKpis } from "@/features/admin/lib/admin";
+import { AdminCharts } from "@/features/admin/components/admin-charts";
+import { getAdminKpis, getAdminChartData } from "@/features/admin/lib/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -17,7 +18,10 @@ const currency = new Intl.NumberFormat("en-US", {
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
-  const kpis = await getAdminKpis(supabase);
+  const [kpis, chartData] = await Promise.all([
+    getAdminKpis(supabase),
+    getAdminChartData(supabase),
+  ]);
 
   const cards = [
     {
@@ -72,6 +76,8 @@ export default async function AdminDashboardPage() {
           <KpiCard key={kpi.label} {...kpi} />
         ))}
       </div>
+
+      <AdminCharts data={chartData} />
     </div>
   );
 }
