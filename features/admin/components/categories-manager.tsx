@@ -44,6 +44,13 @@ export function CategoriesManager({
     [],
   );
 
+  // Live updates (ADR-0011): a Realtime-triggered router.refresh() hands down
+  // fresh props — follow them so renames, deletions, and product counts stay
+  // current without a reload.
+  useEffect(() => {
+    setCategories(initialCategories);
+  }, [initialCategories]);
+
   function showToast(message: string, tone: Toast["tone"]) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     const id = Date.now();

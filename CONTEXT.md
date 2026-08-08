@@ -36,12 +36,12 @@ The single picture a Product must always have, re-encoded server-side to WebP (m
 _Avoid_: Photo, thumbnail, artwork
 
 **Cart**:
-A customer's in-progress selection, held only in the browser (`localStorage`, Zustand). It becomes an Order only when checkout completes.
+A customer's in-progress selection, held only in the browser (`localStorage`, Zustand). It becomes an Order only when checkout completes. Its lines reconcile against the live Catalog — prices and stock refresh, and retired Products get flagged for removal (ADR-0013).
 _Avoid_: Basket, bag, selection
 
-**Catalog sync**:
-The storefront's automatic re-fetch of catalog data so Customers see Admin changes without reloading: a visible storefront tab re-fetches every 10 seconds, pauses while hidden, and refreshes immediately when it becomes visible again (ADR-0010).
-_Avoid_: Live refresh, realtime catalog, auto-update
+**Live sync**:
+Pages updating without a manual refresh when the data they show changes: a Supabase Realtime (Postgres Changes) subscription per open tab triggers a re-render when catalog or order rows change (ADR-0011). The storefront watches the world-readable catalog; the admin watches orders, customers, and catalog alike. Hidden tabs drop refreshes and catch up the moment they become visible.
+_Avoid_: Polling, manual refresh, realtime catalog
 
 ### Orders
 

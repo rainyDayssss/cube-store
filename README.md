@@ -4,7 +4,7 @@ A complete e-commerce storefront and admin dashboard built with [Next.js](https:
 
 Customers browse a responsive storefront (catalog, product details, cart, guest checkout) and place orders **without creating an account**. Supabase Auth exists solely to gate the **Admin dashboard** at `/admin` — a role-protected area for managing the catalog, orders, and customers.
 
-All 11 feature tickets are implemented and resolved, with **129/129 unit tests**, clean `tsc`/ESLint, and a verified production build.
+All 11 feature tickets are implemented and resolved, with **143/143 unit tests**, clean `tsc`/ESLint, and a verified production build.
 
 ## Features
 
@@ -141,8 +141,10 @@ supabase db push
 | `20260807000000_admin_order_transitions.sql` | `transition_order_status` — admin order lifecycle with atomic stock restore on cancel |
 | `20260807000001_seed_admin.sql` | Seeds the `admin@example.com` Admin account in Supabase Auth (pre-confirmed, `role: admin` claim, token columns set to `''`, plus its `auth.identities` row) |
 | `20260808000000_seed_admin_identity_fix.sql` | Backfill for projects seeded with the original admin seed: replaces NULL token columns with `''` and creates the `email` identity row — GoTrue returns an HTTP 500 `Database error querying schema` on login until both are fixed (supabase/auth#1940) |
+| `20260808000001_realtime_publication.sql` | Adds the catalog and order tables to the `supabase_realtime` publication — open storefront and admin tabs refresh via Realtime (ADR-0011) |
+| `20260808000002_admin_read_model.sql` | SQL admin read model: `order_summaries`, `order_details`, `customer_summaries` views (`security_invoker` + RLS) and the `get_admin_kpis` RPC (ADR-0012) |
 
-After applying the first two, run `supabase/verify-ticket-01.sql` in the SQL editor — it prints a PASS/FAIL report covering schema, RLS behaviour, storage, and seed contents.
+After applying the first two, run `supabase/verify-ticket-01.sql` in the SQL editor — it prints a PASS/FAIL report covering schema, RLS behaviour, storage, and seed contents. After applying the read-model migration (`20260808000002_admin_read_model.sql`), run `supabase/verify-read-model.sql` — it verifies the admin views and KPI RPC structurally, behaviourally (against rolled-back scratch data), and against the anon/admin roles.
 
 ### Seeded Admin
 
@@ -186,4 +188,4 @@ The app is a standard Next.js + Supabase deployment (verified with a production 
 npm test
 ```
 
-129 unit tests cover the feature seams: catalog queries and filters, the persisted cart, checkout atomicity and order-number sequencing, admin KPIs, category/product CRUD (including the guarded delete and image validation), the order lifecycle (valid moves, rejected moves, **cancel restores stock exactly once**), customer aggregates, CSV export, plus the mocked Supabase client and the route-mode split.
+143 unit tests cover the feature seams: catalog queries and filters, the persisted cart (including reconciliation against the live catalog — prices/stock refresh and retired Products get flagged, ADR-0013), checkout atomicity and order-number sequencing, admin KPIs (RPC mapping), category/product CRUD (including the guarded delete and image validation), the order lifecycle (valid moves, rejected moves, **cancel restores stock exactly once**), customer aggregates (view mapping), CSV export, the Realtime refresh scheduler, plus the mocked Supabase client and the route-mode split. The SQL read model itself is verified separately by `supabase/verify-read-model.sql`.

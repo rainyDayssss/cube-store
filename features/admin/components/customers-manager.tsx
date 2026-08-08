@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, Search, Users } from "lucide-react";
 import {
@@ -42,6 +42,19 @@ export function CustomersManager({
   // render, so a rapid double-change could otherwise fire two refetches and
   // let a slower earlier response overwrite a newer one.
   const inFlightRef = useRef(false);
+
+  // Live updates (ADR-0011): follow fresh props from a Realtime-triggered
+  // refresh. If the Admin changed the sort in-state (not yet reflected in the
+  // URL), re-fetch with that sort instead of snapping back to the URL's.
+  useEffect(() => {
+    if (sort !== initialSort) {
+      const supabase = createClient();
+      void listCustomers(supabase, { sort }).then((rows) => setCustomers(rows));
+    } else {
+      setCustomers(initialCustomers);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCustomers]);
 
   async function handleSortChange(next: CustomerSort) {
     if (next === sort || inFlightRef.current) return;
@@ -130,6 +143,7 @@ export function CustomersManager({
                 <th className="px-4 py-3 font-medium">Contact</th>
                 <th className="px-4 py-3 font-medium">Orders</th>
                 <th className="px-4 py-3 font-medium">Total spent</th>
+                <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">First order</th>
               </tr>
             </thead>
@@ -153,12 +167,30 @@ export function CustomersManager({
                   <td className="px-4 py-3 tabular-nums">
                     {customer.orderCount}
                   </td>
-                  <td className="px-4 py-3 tabular-nums font-medium">
-                    {priceFormatter.format(customer.totalSpent)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {dateFormatter.format(new Date(customer.createdAt))}
-                  </td>
+                    <td className="px-4 py-3 tabular-nums font-medium">
+                      {priceFormatter.format(customer.totalSpent)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                          customer.accountStatus === "active"
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                            : "border-border bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            customer.accountStatus === "active"
+                              ? "bg-emerald-500"
+                              : "bg-muted-foreground"
+                          }`}
+                        />
+                        {customer.accountStatus === "active" ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {dateFormatter.format(new Date(customer.createdAt))}
+                    </td>
                 </tr>
               ))}
             </tbody>

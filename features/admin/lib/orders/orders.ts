@@ -2,12 +2,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PaymentMethod } from "@/features/checkout/lib/checkout";
 
 /**
- * Admin order management (ticket 10). Reads run with the signed-in Admin's
- * session (RLS admin policies, ADR-0004). Status changes go through the
- * `transition_order_status` Postgres function — the same single-seam shape as
- * `placeOrder` (ticket 06) — which enforces the lifecycle and restores stock
- * on cancel inside one transaction (ADR-0002). This module only shapes the
- * RPC call and maps the response; the trust boundary lives in the function.
+ * Admin order management (ticket 10). Reads come from the database read model
+ * (ADR-0012): the `order_summaries` and `order_details` views (migration
+ * 20260808000002) join Orders with Customers and line items in SQL, so this
+ * module only shapes the query and maps the view columns. The views are
+ * `security_invoker`, so reads run with the signed-in Admin's session and the
+ * RLS admin policies apply (ADR-0004).
+ *
+ * Status changes go through the `transition_order_status` Postgres function —
+ * the same single-seam shape as `placeOrder` (ticket 06) — which enforces the
+ * lifecycle and restores stock on cancel inside one transaction (ADR-0002).
+ * This module only shapes the RPC call and maps the response; the trust
+ * boundary lives in the function.
  *
  * Lifecycle: pending → confirmed → preparing → shipped → completed, with
  * `cancelled` as an alternative terminal state reachable from any state
@@ -86,84 +92,59 @@ export type OrderListItem = {
   customerEmail: string;
 };
 
-type OrderRow = {
+/** Columns of the `order_summaries` view (ADR-0012). */
+type OrderSummaryRow = {
   id: string;
   order_number: string;
-  customer_id: string;
-  delivery_address: string;
-  payment_method: string;
   status: string;
   total_amount: number;
-  notes: string | null;
   created_at: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  items_count: number;
 };
 
 /**
  * Orders newest first, filtered by status and/or a search term that matches
- * order number, customer name, or customer email. Customers and item counts
- * are merged client-side from parallel queries (PostgREST has no joins).
+ * order number, customer name, or customer email. The join with Customers and
+ * the item count live in the `order_summaries` view; the search term is
+ * applied here over the (small) result set.
  */
 export async function listOrders(
   client: SupabaseClient,
   params: { status?: OrderStatus; q?: string } = {},
 ): Promise<OrderListItem[]> {
   let query = client
-    .from("orders")
+    .from("order_summaries")
     .select("*")
     .order("created_at", { ascending: false });
   if (params.status) {
     query = query.eq("status", params.status);
   }
 
-  const [ordersResult, customersResult, itemsResult] = await Promise.all([
-    query,
-    client.from("customers").select("id, full_name, email"),
-    client.from("order_items").select("order_id, quantity"),
-  ]);
-  if (ordersResult.error || customersResult.error || itemsResult.error) return [];
-
-  const customers = new Map(
-    (
-      (customersResult.data ?? []) as {
-        id: string;
-        full_name: string;
-        email: string;
-      }[]
-    ).map((customer) => [customer.id, customer]),
-  );
-
-  const itemCounts = new Map<string, number>();
-  for (const item of (itemsResult.data ?? []) as {
-    order_id: string;
-    quantity: number;
-  }[]) {
-    itemCounts.set(item.order_id, (itemCounts.get(item.order_id) ?? 0) + item.quantity);
-  }
+  const { data, error } = await query;
+  if (error) return [];
 
   const q = params.q?.trim().toLowerCase();
-  const rows = ((ordersResult.data ?? []) as OrderRow[]).filter((row) => {
+  const rows = ((data ?? []) as OrderSummaryRow[]).filter((row) => {
     if (!q) return true;
-    const customer = customers.get(row.customer_id);
     return (
       row.order_number.toLowerCase().includes(q) ||
-      (customer?.full_name.toLowerCase().includes(q) ?? false) ||
-      (customer?.email.toLowerCase().includes(q) ?? false)
+      (row.customer_name?.toLowerCase().includes(q) ?? false) ||
+      (row.customer_email?.toLowerCase().includes(q) ?? false)
     );
   });
 
-  return rows.map((row) => {
-    const customer = customers.get(row.customer_id);
-    return {
-      id: row.id,
-      orderNumber: row.order_number,
-      status: row.status as OrderStatus,
-      totalAmount: Number(row.total_amount),
-      createdAt: row.created_at,
-      itemsCount: itemCounts.get(row.id) ?? 0,
-      customerName: customer?.full_name ?? "Unknown customer",
-      customerEmail: customer?.email ?? "",
-    };
-  });
+  return rows.map((row) => ({
+    id: row.id,
+    orderNumber: row.order_number,
+    status: row.status as OrderStatus,
+    totalAmount: Number(row.total_amount),
+    createdAt: row.created_at,
+    itemsCount: Number(row.items_count) || 0,
+    customerName: row.customer_name ?? "Unknown customer",
+    customerEmail: row.customer_email ?? "",
+  }));
 }
 
 export type OrderItemDetail = {
@@ -190,78 +171,69 @@ export type OrderDetail = {
   items: OrderItemDetail[];
 };
 
+/** Columns of the `order_details` view (ADR-0012) — items is a jsonb array. */
+type OrderDetailRow = {
+  id: string;
+  order_number: string;
+  status: string;
+  total_amount: number;
+  notes: string | null;
+  created_at: string;
+  delivery_address: string;
+  payment_method: string;
+  customer_name: string;
+  customer_email: string;
+  customer_contact_number: string;
+  items: {
+    id: string;
+    product_id: string | null;
+    product_name: string;
+    image_url: string | null;
+    quantity: number;
+    unit_price: number;
+  }[];
+};
+
 /**
- * One Order with its Customer and line items (product names/images joined
- * client-side). Returns null when the order no longer exists.
+ * One Order with its Customer and line items, from the `order_details` view
+ * (the join and the "Deleted product" label for removed Products live in SQL,
+ * ADR-0012). Returns null when the order no longer exists.
  */
 export async function getOrderDetail(
   client: SupabaseClient,
   orderId: string,
 ): Promise<OrderDetail | null> {
-  const orderResult = await client
-    .from("orders")
+  const { data, error } = await client
+    .from("order_details")
     .select("*")
     .eq("id", orderId)
     .maybeSingle();
-  if (orderResult.error || !orderResult.data) return null;
-  const order = orderResult.data as OrderRow;
+  if (error || !data) return null;
 
-  const [customerResult, itemsResult, productsResult] = await Promise.all([
-    client.from("customers").select("*").eq("id", order.customer_id).maybeSingle(),
-    client
-      .from("order_items")
-      .select("*")
-      .eq("order_id", order.id)
-      .order("created_at"),
-    client.from("products").select("id, name, image_url"),
-  ]);
-  if (customerResult.error || !customerResult.data) return null;
-
-  const productNames = new Map(
-    (
-      (productsResult.data ?? []) as { id: string; name: string; image_url: string }[]
-    ).map((product) => [product.id, product]),
-  );
-
-  const items: OrderItemDetail[] = ((itemsResult.data ?? []) as {
-    id: string;
-    product_id: string | null;
-    quantity: number;
-    unit_price: number;
-  }[]).map((item) => {
-    const product = item.product_id ? productNames.get(item.product_id) : undefined;
-    return {
+  const row = data as OrderDetailRow;
+  return {
+    id: row.id,
+    orderNumber: row.order_number,
+    status: row.status as OrderStatus,
+    totalAmount: Number(row.total_amount),
+    notes: row.notes,
+    createdAt: row.created_at,
+    customer: {
+      fullName: row.customer_name,
+      email: row.customer_email,
+      contactNumber: row.customer_contact_number,
+    },
+    deliveryAddress: row.delivery_address,
+    paymentMethod: row.payment_method as PaymentMethod,
+    items: row.items.map((item) => ({
       id: item.id,
       productId: item.product_id,
-      productName: product?.name ?? "Deleted product",
-      imageUrl: product?.image_url ?? null,
+      productName: item.product_name,
+      imageUrl: item.image_url,
       quantity: item.quantity,
       unitPrice: Number(item.unit_price),
       lineTotal: Number(item.unit_price) * item.quantity,
-    };
-  });
-
-  const customer = customerResult.data as {
-    full_name: string;
-    email: string;
-    contact_number: string;
-  };
-
-  return {
-    id: order.id,
-    orderNumber: order.order_number,
-    status: order.status as OrderStatus,
-    totalAmount: Number(order.total_amount),
-    notes: order.notes,
-    createdAt: order.created_at,
-    customer: {
-      fullName: customer.full_name,
-      email: customer.email,
-      contactNumber: customer.contact_number,
-    },
-    deliveryAddress: order.delivery_address,
-    paymentMethod: order.payment_method as PaymentMethod,
-    items,
+    })),
   };
 }
 
@@ -328,8 +300,8 @@ export function ordersToCsv(rows: OrderListItem[]): string {
 }
 
 function csvCell(value: string): string {
-  if (/[",\r\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+  if (/[\",\r\n]/.test(value)) {
+    return `"${value.replace(/\"/g, "\"\"")}"`;
   }
   return value;
 }

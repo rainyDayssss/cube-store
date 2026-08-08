@@ -34,6 +34,7 @@ export function ProductsManager({
   const [products, setProducts] = useState(initialProducts);
   const [searchDraft, setSearchDraft] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [confirming, setConfirming] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
@@ -53,6 +54,18 @@ export function ProductsManager({
     },
     [],
   );
+
+  // Live updates (ADR-0011): follow fresh props from a Realtime-triggered
+  // refresh. The server page only knows the unfiltered list, so an active
+  // search/category filter is preserved by re-running the filtered query.
+  useEffect(() => {
+    if (searchDraft.trim() || categoryFilter || statusFilter) {
+      void refresh(searchDraft, categoryFilter);
+    } else {
+      setProducts(initialProducts);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialProducts]);
 
   function showToast(message: string, tone: Toast["tone"]) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -81,7 +94,7 @@ export function ProductsManager({
       void refresh(searchDraft, categoryFilter);
     }, 300);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchDraft, categoryFilter]);
+  }, [searchDraft, categoryFilter, statusFilter]);
 
   async function handleToggle(product: AdminProduct) {
     if (inFlightRef.current) return;
@@ -127,6 +140,10 @@ export function ProductsManager({
   const iconButton =
     "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
+  const filteredProducts = statusFilter
+    ? products.filter((p) => p.status === statusFilter)
+    : products;
+
   return (
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
@@ -159,6 +176,19 @@ export function ProductsManager({
               </option>
             ))}
           </select>
+          <label htmlFor="admin-status-filter" className="sr-only">
+            Filter by status
+          </label>
+          <select
+            id="admin-status-filter"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
           <Button onClick={() => setModal({ mode: "create" })}>
             <PackagePlus className="h-4 w-4" />
             New product
@@ -167,9 +197,9 @@ export function ProductsManager({
       </div>
 
       {/* Table */}
-      {products.length === 0 ? (
+      {filteredProducts.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          No products match. Try a different search or category.
+          No products match. Try a different search, category, or status.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-background">
@@ -185,7 +215,7 @@ export function ProductsManager({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {products.map((product) => {
+              {filteredProducts.map((product) => {
                 const outOfStock = product.stock_quantity === 0;
                 return (
                   <tr key={product.id} className={cn(product.status !== "active" && "opacity-70")}>

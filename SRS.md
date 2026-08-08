@@ -176,3 +176,13 @@ CubeTech Assessment Specification • 100% Shared Understanding Reached
 - **Product images** — public Supabase Storage bucket, admin-write policies, jpg/png/webp ≤ 5MB.
 - Note: spec targets Next.js 15; the repo currently runs Next.js 16.2.12.
 - **Single application (ADR-0006):** a separate admin project (`cube-store-admin`) sharing one Supabase database was briefly scaffolded (ADR-0005), then merged back into this repo — the admin dashboard lives here as the `/admin` route group. Admin sections of this SRS (§02 admin pages) describe that area.
+
+## Revisions (UI/UX improvement session)
+
+- **Footer redesign** — expanded from copyright-only to a 4-column layout: brand + description, shop links, contact information (email, phone, address — mock data), and social links (Facebook — mock data). Theme switcher retained in the bottom bar.
+- **Product card enhancements** — cards now display the category label, an explicit "View Details" button, and an "Add to Cart" button (instant add, 1 item). The "Out of stock" badge now includes an icon (`XCircle`) alongside the text for colorblind accessibility.
+- **Product status filter (admin)** — added a status dropdown filter ("All statuses / Active / Inactive") to the products manager toolbar, matching the existing category filter pattern. Filters client-side over the fetched product list.
+- **Customer account status column (admin)** — the `account_status` field (already returned by `customer_summaries` view) is now displayed as a styled badge (Active = green dot, Inactive = gray dot) in the customers table.
+- **Admin dashboard charts** — added two Recharts visualizations below the KPI cards: "Orders over time" (line chart) and "Revenue by month" (bar chart), both showing the last 6 months. Data is queried directly from the `orders` table, excluding cancelled orders.
+- **Accessibility improvements** — added visible focus rings (`focus-visible:ring-1`) to cart quantity stepper buttons (both storefront cart and product detail page). Added icon + text pairing to product card stock badges.
+- **Out of stock remains derived** — confirmed that `stock_quantity === 0` is the source of truth; no third status was added to the `product_status` enum.

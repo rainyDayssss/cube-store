@@ -112,7 +112,7 @@ export async function CatalogGrid({
         <>
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} categories={categories} />
             ))}
           </div>
           {totalPages > 1 && (

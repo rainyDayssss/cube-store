@@ -65,6 +65,14 @@ export function OrdersManager({
     [],
   );
 
+  // Live updates (ADR-0011): a Realtime-triggered router.refresh() hands down
+  // fresh props — follow them so new orders and status moves appear without a
+  // reload. Status chips and search filter over this list in memory, so the
+  // Admin's current view survives the re-sync.
+  useEffect(() => {
+    setOrders(initialOrders);
+  }, [initialOrders]);
+
   function showToast(message: string, tone: Toast["tone"]) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ message, tone, id: Date.now() });

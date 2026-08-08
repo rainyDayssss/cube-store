@@ -15,11 +15,15 @@ import {
 const toClient = (mock: MockSupabase) => mock as unknown as SupabaseClient;
 
 /**
- * Faithful simulation of the `transition_order_status` Postgres function
- * (ticket 10): enforces the lifecycle (forward steps only, cancel from any
- * non-terminal state, terminal states immutable) and restores stock on cancel
- * inside the same operation. Tests assert on the mock's real tables via
- * `mock.db`, so they verify the seam's behaviour end-to-end.
+ * The list/detail reads come from the `order_summaries` / `order_details`
+ * views (ADR-0012); the SQL joins and the "Deleted product" label are
+ * verified by supabase/verify-read-model.sql. These tests seed view-shaped
+ * rows and pin the TS mapping, filters, and search.
+ *
+ * The `transition_order_status` RPC is simulated faithfully below (ticket 10):
+ * enforces the lifecycle (forward steps only, cancel from any non-terminal
+ * state, terminal states immutable) and restores stock on cancel inside the
+ * same operation. Tests assert on the mock's real tables via `mock.db`.
  */
 
 const NEXT_STEP: Record<"pending" | "confirmed" | "preparing" | "shipped", string> = {
@@ -116,6 +120,39 @@ type OrderRow = {
   created_at: string;
 };
 
+type OrderSummaryRow = {
+  id: string;
+  order_number: string;
+  status: string;
+  total_amount: number;
+  created_at: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  items_count: number;
+};
+
+type OrderDetailRow = {
+  id: string;
+  order_number: string;
+  status: string;
+  total_amount: number;
+  notes: string | null;
+  created_at: string;
+  delivery_address: string;
+  payment_method: string;
+  customer_name: string;
+  customer_email: string;
+  customer_contact_number: string;
+  items: {
+    id: string;
+    product_id: string | null;
+    product_name: string;
+    image_url: string | null;
+    quantity: number;
+    unit_price: number;
+  }[];
+};
+
 const cube: ProductRow = {
   id: "p1",
   name: "3x3 Speed Cube",
@@ -174,6 +211,88 @@ const order2: OrderRow = {
   created_at: "2026-08-07T10:00:00Z",
 };
 
+// View-shaped rows (what `order_summaries` / `order_details` would return for
+// the base data above — the SQL that produces them is verified separately).
+const orderSummaries: OrderSummaryRow[] = [
+  {
+    id: "o1",
+    order_number: "ORD-20260807-0001",
+    status: "pending",
+    total_amount: 35.97,
+    created_at: "2026-08-07T09:00:00Z",
+    customer_name: "Ada Lovelace",
+    customer_email: "ada@example.com",
+    items_count: 3,
+  },
+  {
+    id: "o2",
+    order_number: "ORD-20260807-0002",
+    status: "completed",
+    total_amount: 9.99,
+    created_at: "2026-08-07T10:00:00Z",
+    customer_name: "Grace Hopper",
+    customer_email: "grace@example.com",
+    items_count: 1,
+  },
+];
+
+const orderDetails: OrderDetailRow[] = [
+  {
+    id: "o1",
+    order_number: "ORD-20260807-0001",
+    status: "pending",
+    total_amount: 35.97,
+    notes: "Ring twice",
+    created_at: "2026-08-07T09:00:00Z",
+    delivery_address: "12 Analytical Engine St, Manila",
+    payment_method: "cod",
+    customer_name: "Ada Lovelace",
+    customer_email: "ada@example.com",
+    customer_contact_number: "+63 912 345 6789",
+    items: [
+      {
+        id: "i1",
+        product_id: "p1",
+        product_name: "3x3 Speed Cube",
+        image_url: "https://img/cube.jpg",
+        quantity: 2,
+        unit_price: 12.99,
+      },
+      {
+        id: "i2",
+        product_id: "p2",
+        product_name: "Pyraminx",
+        image_url: "https://img/pyraminx.jpg",
+        quantity: 1,
+        unit_price: 9.99,
+      },
+    ],
+  },
+  {
+    id: "o2",
+    order_number: "ORD-20260807-0002",
+    status: "completed",
+    total_amount: 9.99,
+    notes: null,
+    created_at: "2026-08-07T10:00:00Z",
+    delivery_address: "1 Compiler Lane, Quezon City",
+    payment_method: "ewallet",
+    customer_name: "Grace Hopper",
+    customer_email: "grace@example.com",
+    customer_contact_number: "+63 900 000 0000",
+    items: [
+      {
+        id: "i3",
+        product_id: "p2",
+        product_name: "Pyraminx",
+        image_url: "https://img/pyraminx.jpg",
+        quantity: 1,
+        unit_price: 9.99,
+      },
+    ],
+  },
+];
+
 function makeMock(orders: OrderRow[] = [order1, order2]) {
   const mock = createMockSupabase({
     products: [cube, pyraminx],
@@ -184,13 +303,15 @@ function makeMock(orders: OrderRow[] = [order1, order2]) {
       { id: "i2", order_id: "o1", product_id: "p2", quantity: 1, unit_price: 9.99 },
       { id: "i3", order_id: "o2", product_id: "p2", quantity: 1, unit_price: 9.99 },
     ],
+    order_summaries: orderSummaries,
+    order_details: orderDetails,
   });
   installTransitionOrderStatus(mock);
   return mock;
 }
 
 describe("listOrders (ticket 10)", () => {
-  it("merges customer names/emails and item counts, newest first", async () => {
+  it("maps the joined view rows (customer, item count), newest first", async () => {
     const mock = makeMock();
     const rows = await listOrders(toClient(mock));
 
@@ -233,15 +354,15 @@ describe("listOrders (ticket 10)", () => {
     expect(await listOrders(toClient(mock), { q: "nope" })).toHaveLength(0);
   });
 
-  it("returns an empty list when the order query fails", async () => {
+  it("returns an empty list when the view query fails", async () => {
     const mock = makeMock();
-    mock.failNext({ op: "select", table: "orders" });
+    mock.failNext({ op: "select", table: "order_summaries" });
     expect(await listOrders(toClient(mock))).toEqual([]);
   });
 });
 
 describe("getOrderDetail (ticket 10)", () => {
-  it("returns the order with customer, items, product names, and snapshots", async () => {
+  it("maps the joined detail row: customer, items, and snapshots", async () => {
     const mock = makeMock();
     const detail = await getOrderDetail(toClient(mock), "o1");
 
@@ -276,16 +397,23 @@ describe("getOrderDetail (ticket 10)", () => {
     ]);
   });
 
-  it("labels deleted products without crashing", async () => {
+  it("labels deleted products without crashing (label comes from the view)", async () => {
     const mock = makeMock();
-    // A product deleted after purchase (product_id null via on delete set null).
-    mock.db.order_items?.push({
-      id: "i4",
-      order_id: "o1",
-      product_id: null,
-      quantity: 1,
-      unit_price: 5,
-    });
+    // The view renders a Product deleted after purchase as "Deleted product"
+    // (product_id null via on delete set null); seed that shape here.
+    const detailRow = mock.db.order_details!.find((row) => row.id === "o1")!;
+    (detailRow as OrderDetailRow).items = [
+      ...(detailRow as OrderDetailRow).items,
+      {
+        id: "i4",
+        product_id: null,
+        product_name: "Deleted product",
+        image_url: null,
+        quantity: 1,
+        unit_price: 5,
+      },
+    ];
+
     const detail = await getOrderDetail(toClient(mock), "o1");
     expect(detail?.items[2]).toMatchObject({
       productId: null,
