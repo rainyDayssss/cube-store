@@ -52,13 +52,13 @@ export function AddToCart({ product }: { product: Product }) {
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="flex h-10 items-center rounded-md border border-input bg-background shadow-sm">
+      <div className="flex h-10 w-full items-center rounded-md border border-input bg-background shadow-sm sm:w-auto">
         <button
           type="button"
           onClick={() => setQuantity((q) => clamp(q - 1))}
           disabled={quantity <= 1}
           aria-label="Decrease quantity"
-          className="flex h-full w-10 items-center justify-center rounded-l-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-full flex-1 items-center justify-center rounded-l-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:w-10 sm:flex-none"
         >
           <Minus className="h-4 w-4" />
         </button>
@@ -73,7 +73,7 @@ export function AddToCart({ product }: { product: Product }) {
           onClick={() => setQuantity((q) => clamp(q + 1))}
           disabled={quantity >= maxQuantity}
           aria-label="Increase quantity"
-          className="flex h-full w-10 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-full flex-1 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:w-10 sm:flex-none"
         >
           <Plus className="h-4 w-4" />
         </button>

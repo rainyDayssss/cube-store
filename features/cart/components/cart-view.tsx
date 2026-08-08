@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { ArrowLeft, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import {
   cartCount,
   cartSubtotal,
@@ -23,7 +23,8 @@ export function CartView() {
   if (!hasHydrated) {
     return (
       <div className="mx-auto w-full max-w-5xl px-5 py-10">
-        <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
+        <div className="h-8 w-28 animate-pulse rounded-md bg-muted" />
+        <div className="mt-2 h-8 w-40 animate-pulse rounded-md bg-muted" />
         <div className="mt-6 space-y-4">
           {Array.from({ length: 2 }).map((_, index) => (
             <div key={index} className="h-24 animate-pulse rounded-xl bg-muted" />
@@ -35,6 +36,12 @@ export function CartView() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-5 py-10">
+      <Button asChild variant="ghost" size="sm" className="-ml-3 mb-2 text-muted-foreground">
+        <Link href="/products">
+          <ArrowLeft className="h-4 w-4" />
+          Back to products
+        </Link>
+      </Button>
       <h1 className="font-display text-3xl font-bold tracking-tight">Your cart</h1>
 
       {items.length === 0 ? (

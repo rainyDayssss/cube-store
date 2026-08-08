@@ -71,7 +71,7 @@ export function ProductCard({
         <p className="mt-auto text-sm font-semibold">
           {priceFormatter.format(product.price)}
         </p>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
             onClick={handleViewDetails}

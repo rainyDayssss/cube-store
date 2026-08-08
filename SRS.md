@@ -186,3 +186,11 @@ CubeTech Assessment Specification • 100% Shared Understanding Reached
 - **Admin dashboard charts** — added two Recharts visualizations below the KPI cards: "Orders over time" (line chart) and "Revenue by month" (bar chart), both showing the last 6 months. Data is queried directly from the `orders` table, excluding cancelled orders.
 - **Accessibility improvements** — added visible focus rings (`focus-visible:ring-1`) to cart quantity stepper buttons (both storefront cart and product detail page). Added icon + text pairing to product card stock badges.
 - **Out of stock remains derived** — confirmed that `stock_quantity === 0` is the source of truth; no third status was added to the `product_status` enum.
+
+## Revisions (UI/UX fixes session)
+
+- **Promotional carousel** — added a rotating banner section below the hero with 3 slides (gradient backgrounds + text). Auto-rotates every 5 seconds with arrow and dot navigation.
+- **Duplicate search bar fix** — header search bar is now hidden on the `/products` page where the toolbar search (instant, debounced) takes over. Header search remains on all other pages.
+- **Sort dropdown cleanup** — removed "Newest" from the price sort dropdown (it was misleading as a price sort option). Dropdown now shows "Sort by price" placeholder + "Price: Low to High" / "Price: High to Low". Server-side default remains "newest" (by `created_at`).
+- **Mobile button layout** — product card "View Details" and "Add to Cart" buttons now stack vertically on small screens instead of side-by-side, preventing text from being chopped.
+- **Product detail stock number** — the stock badge now shows the actual quantity for in-stock items (e.g., "42 in stock") instead of just "In stock". Low-stock ("Only X left") and out-of-stock ("Out of stock") badges unchanged.

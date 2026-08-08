@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -12,7 +12,6 @@ import {
 } from "@/features/catalog/lib/catalog";
 
 const SORT_OPTIONS: { value: CatalogSort; label: string }[] = [
-  { value: "newest", label: "Newest" },
   { value: "price-asc", label: "Price: Low to High" },
   { value: "price-desc", label: "Price: High to Low" },
 ];
@@ -34,7 +33,7 @@ export function CatalogToolbar({
   const q = searchParams.get("q") ?? "";
   const category = searchParams.get("category") ?? "";
   const rawSort = searchParams.get("sort");
-  const sort: CatalogSort = isValidSort(rawSort) ? rawSort : "newest";
+  const sort: CatalogSort | "" = isValidSort(rawSort) ? rawSort : "";
 
   const [draft, setDraft] = useState(q);
   const firstRender = useRef(true);
@@ -44,30 +43,6 @@ export function CatalogToolbar({
   // never overwrite a category/sort change made while the timer was waiting.
   const latestParamsRef = useRef(searchParams);
   latestParamsRef.current = searchParams;
-
-  // Horizontal-scroll hint for the filter row: on mobile the controls keep
-  // their place on one line (swipe to reach the rest), and a fade appears on
-  // the right edge only while there is more content to scroll to.
-  const filterRowRef = useRef<HTMLDivElement>(null);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-
-  function updateScrollHint() {
-    const el = filterRowRef.current;
-    if (!el) return;
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
-  }
-
-  useEffect(() => {
-    updateScrollHint();
-    const el = filterRowRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(updateScrollHint);
-    observer.observe(el);
-    // A <select> grows when a longer option is chosen — observe the children
-    // too so the hint updates the moment the row actually overflows.
-    for (const child of Array.from(el.children)) observer.observe(child);
-    return () => observer.disconnect();
-  }, []);
 
   // Keep the input in sync when the URL changes (back/forward, "clear" link),
   // but never clobber text the user is actively typing.
@@ -132,64 +107,47 @@ export function CatalogToolbar({
         />
       </div>
 
-      {/* Filters stay on one row at every size: when the controls overflow
-          the viewport they scroll horizontally instead of wrapping. */}
-      <div className="relative min-w-0">
-        <div
-          ref={filterRowRef}
-          onScroll={updateScrollHint}
-          className="flex items-center gap-3 overflow-x-auto overscroll-x-contain pb-1"
+      {/* Filters: stacked full-width on mobile, side-by-side on desktop. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <label htmlFor="category-filter" className="sr-only">
+          Filter by category
+        </label>
+        <select
+          id="category-filter"
+          value={category}
+          onChange={(event) => updateParams({ category: event.target.value }, searchParams)}
+          className={cn(
+            "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm sm:w-auto",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          )}
         >
-          <div className="flex shrink-0 items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" aria-hidden />
-            <label htmlFor="category-filter" className="sr-only">
-              Filter by category
-            </label>
-            <select
-              id="category-filter"
-              value={category}
-              onChange={(event) => updateParams({ category: event.target.value }, searchParams)}
-              className={cn(
-                "h-9 shrink-0 rounded-md border border-input bg-background px-3 text-sm shadow-sm",
-                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-              )}
-            >
-              <option value="">All categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.slug}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <option value="">All categories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.slug}>
+              {c.name}
+            </option>
+          ))}
+        </select>
 
-          <label htmlFor="sort-select" className="sr-only">
-            Sort products
-          </label>
-          <select
-            id="sort-select"
-            value={sort}
-            onChange={(event) => updateParams({ sort: event.target.value }, searchParams)}
-            className={cn(
-              "h-9 shrink-0 rounded-md border border-input bg-background px-3 text-sm shadow-sm",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            )}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Fade hint on the right edge while more controls are off-screen. */}
-        {canScrollRight && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent"
-          />
-        )}
+        <label htmlFor="sort-select" className="sr-only">
+          Sort products
+        </label>
+        <select
+          id="sort-select"
+          value={sort}
+          onChange={(event) => updateParams({ sort: event.target.value }, searchParams)}
+          className={cn(
+            "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm sm:w-auto",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          )}
+        >
+          <option value="">Sort by price</option>
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );
