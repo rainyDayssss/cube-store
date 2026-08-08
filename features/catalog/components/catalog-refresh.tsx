@@ -1,42 +1,29 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { createCatalogRefresh } from "@/features/catalog/lib/catalog-refresh";
+import { useRealtimeRefresh } from "@/lib/supabase/use-realtime-refresh";
+import { emitCatalogChanged } from "@/features/catalog/lib/catalog-events";
+
+// The catalog tables an anonymous tab can read (RLS world-readable, ADR-0004):
+// Realtime broadcasts their changes to storefront tabs. Order tables are NOT
+// listed — guests cannot SELECT them, so those events would never arrive
+// anyway, and omitting them keeps the subscription surface explicit.
+const CATALOG_TABLES = ["products", "categories"] as const;
 
 /**
- * Keeps open storefront tabs current with Admin catalog changes (ADR-0010).
+ * Keeps open storefront tabs current with Admin catalog changes (ADR-0011).
  *
- * While the tab is visible it calls `router.refresh()` on the poll interval,
- * re-running the page's server components so products, categories, stock
- * badges, and featured lists all re-fetch in one shot — no manual reload
- * needed. Polling pauses while the tab is hidden and, when the Customer
- * returns, the tab refreshes immediately instead of waiting for the next
- * tick. Mounted from `StorefrontHeader`, so it runs on every storefront page
- * and is structurally absent from the admin surface. Renders nothing; all
- * scheduling decisions live in the tested seam.
+ * Subscribes to Supabase Realtime (Postgres Changes) on the catalog tables
+ * and calls `router.refresh()` on each event, re-running the page's server
+ * components so products, categories, stock badges, and featured lists all
+ * re-fetch in one shot — no manual reload, within milliseconds of the change.
+ * Mounted from `StorefrontHeader`, so it runs on every storefront page and is
+ * structurally absent from the admin surface. Renders nothing; scheduling
+ * lives in the tested seam.
  */
 export function CatalogRefresh() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const poll = createCatalogRefresh(() => router.refresh());
-    poll.startIfVisible(document.visibilityState === "visible");
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        poll.onVisible();
-      } else {
-        poll.onHidden();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      poll.dispose();
-    };
-  }, [router]);
-
+  // The refresh callback also fires the `catalog:changed` DOM event so
+  // client pieces (the Cart's reconcile, ADR-0013) can react without
+  // coupling to this component.
+  useRealtimeRefresh("catalog-sync", CATALOG_TABLES, emitCatalogChanged);
   return null;
 }

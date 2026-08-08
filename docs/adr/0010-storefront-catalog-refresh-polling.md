@@ -2,7 +2,7 @@
 
 Customers keep storefront tabs open; when an Admin adds, edits, deletes, or toggles a Product (or an order cancellation restores stock), the open tab should show the change without a manual refresh. The storefront pages are all dynamic server components querying Supabase per request, and the storefront and admin are separate deployments sharing one Supabase project (ADR-0007) — so the trigger that says "the catalog changed" must flow through Supabase, and the re-render is a `router.refresh()` on the open tab, which re-runs every server component on the page (products, categories, stock badges, featured lists, category filter) in one shot. The trigger is polling: a `CatalogRefresh` client component mounted in `StorefrontHeader` re-fetches every 10 seconds while the tab is visible, pauses while it is hidden, and refreshes immediately when the tab becomes visible again.
 
-Status: accepted
+Status: superseded by ADR-0011
 
 ## Considered options
 
