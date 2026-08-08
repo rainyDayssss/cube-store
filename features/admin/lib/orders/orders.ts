@@ -90,6 +90,7 @@ export type OrderListItem = {
   itemsCount: number;
   customerName: string;
   customerEmail: string;
+  paymentMethod: PaymentMethod;
 };
 
 /** Columns of the `order_summaries` view (ADR-0012). */
@@ -98,6 +99,7 @@ type OrderSummaryRow = {
   order_number: string;
   status: string;
   total_amount: number;
+  payment_method: string;
   created_at: string;
   customer_name: string | null;
   customer_email: string | null;
@@ -144,6 +146,7 @@ export async function listOrders(
     itemsCount: Number(row.items_count) || 0,
     customerName: row.customer_name ?? "Unknown customer",
     customerEmail: row.customer_email ?? "",
+    paymentMethod: row.payment_method as PaymentMethod,
   }));
 }
 
