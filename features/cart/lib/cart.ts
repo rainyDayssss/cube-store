@@ -18,6 +18,19 @@ export type CartItem = {
   image_url: string;
   stock_quantity: number;
   quantity: number;
+  /**
+   * Set by reconciliation (ADR-0013) when the Product no longer exists or is
+   * no longer active. Unavailable lines stay visible so the Customer can see
+   * and remove them; they block checkout until removed.
+   */
+  unavailable?: boolean;
+};
+
+export type CartReconcileResult = {
+  /** Product ids whose display data or quantity changed to match the catalog. */
+  updated: string[];
+  /** Product ids newly flagged as unavailable (deleted or retired). */
+  unavailable: string[];
 };
 
 export type CartState = {
@@ -29,6 +42,12 @@ export type CartState = {
   removeItem: (productId: string) => void;
   /** Success callback seam: checkout (ticket 06) calls this after an Order. */
   clearCart: () => void;
+  /**
+   * Brings the cart in line with the live Catalog (ADR-0013): refreshes
+   * prices/stock/names/images, clamps quantities to live stock, and flags
+   * retired Products. Returns what changed so the UI can tell the Customer.
+   */
+  reconcile: (liveProducts: readonly Product[]) => CartReconcileResult;
   /** True once localStorage has been rehydrated on the client. */
   hasHydrated: boolean;
   setHasHydrated: (hydrated: boolean) => void;
@@ -114,6 +133,20 @@ export const useCartStore = create<CartState>()(
         })),
 
       clearCart: () => set({ items: [] }),
+
+      // `useCartStore` is referenced only when the action runs (after the
+      // store exists), so the circular reference is safe.
+      reconcile: (liveProducts) => {
+        const current = useCartStore.getState().items;
+        const { items, result } = reconcileCart(current, liveProducts);
+        // Nothing changed: keep the same array reference so subscribers and
+        // localStorage are not touched on every page visit or Realtime event.
+        if (result.updated.length === 0 && result.unavailable.length === 0) {
+          return { updated: [], unavailable: [] };
+        }
+        set({ items });
+        return result;
+      },
     }),
     {
       name: "cube-store-cart",
@@ -135,4 +168,54 @@ export function cartCount(items: CartItem[]): number {
 /** Derived: subtotal before shipping (prices are snapshots at add time). */
 export function cartSubtotal(items: CartItem[]): number {
   return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+}
+
+/**
+ * Brings cart lines in line with the live Catalog (ADR-0013). For every line:
+ * refresh name/price/image/stock from the current Product row, clamp the
+ * quantity to live stock (holding at 1 like `updateQuantity`), and flag
+ * Products that are gone or no longer active. Deleted Products simply do not
+ * appear in the fetched list; retired ones come back with `status !== "active"`.
+ * Only genuinely new changes are reported, so the UI never re-announces an
+ * already-synced cart.
+ */
+export function reconcileCart(
+  items: CartItem[],
+  liveProducts: readonly Product[],
+): { items: CartItem[]; result: CartReconcileResult } {
+  const live = new Map(liveProducts.map((product) => [product.id, product]));
+  const result: CartReconcileResult = { updated: [], unavailable: [] };
+
+  const nextItems = items.map((item) => {
+    const product = live.get(item.id);
+
+    // Deleted or retired: flag, keep the line visible for removal, and do not
+    // touch its snapshot data (it is the only record left of what was bought).
+    if (!product || product.status !== "active") {
+      if (!item.unavailable) result.unavailable.push(item.id);
+      return { ...item, unavailable: true };
+    }
+
+    const quantity = Math.min(item.quantity, Math.max(1, product.stock_quantity));
+    const changed =
+      item.name !== product.name ||
+      item.price !== product.price ||
+      item.image_url !== product.image_url ||
+      item.stock_quantity !== product.stock_quantity ||
+      item.quantity !== quantity ||
+      item.unavailable === true;
+    if (changed) result.updated.push(item.id);
+
+    return {
+      ...item,
+      name: product.name,
+      price: product.price,
+      image_url: product.image_url,
+      stock_quantity: product.stock_quantity,
+      quantity,
+      unavailable: false,
+    };
+  });
+
+  return { items: nextItems, result };
 }

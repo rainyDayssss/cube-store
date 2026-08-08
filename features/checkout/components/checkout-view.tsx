@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { cartCount, cartSubtotal, useCartStore, type CartItem } from "@/features/cart/lib/cart";
+import { useCartReconcile } from "@/features/cart/lib/use-cart-reconcile";
 import { type PaymentMethod } from "@/features/checkout/lib/checkout";
 import { submitCheckout, type CheckoutActionResponse } from "@/features/checkout/actions";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,11 @@ export function CheckoutView() {
   const items = useCartStore((state) => state.items);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
   const clearCart = useCartStore((state) => state.clearCart);
+  // Keep the summary honest with the live catalog (ADR-0013): prices/stock
+  // refresh on mount, and retired Products get flagged below. Checkout stays
+  // the authoritative backstop for anything that changes mid-submit.
+  useCartReconcile();
+  const unavailableCount = items.filter((item) => item.unavailable).length;
 
   const [fields, setFields] = useState<FormFields>(EMPTY_FORM);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormFields, string>>>({});
@@ -300,7 +306,12 @@ export function CheckoutView() {
 
             <ErrorBanner result={result} onDismiss={() => setResult(null)} />
 
-            <Button type="submit" size="lg" disabled={submitting} className="w-full sm:w-auto">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={submitting || unavailableCount > 0}
+              className="w-full sm:w-auto"
+            >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -310,6 +321,18 @@ export function CheckoutView() {
                 `Place order · ${priceFormatter.format(subtotal)}`
               )}
             </Button>
+            {unavailableCount > 0 && (
+              <p className="mt-3 text-sm font-medium text-destructive">
+                Some items are no longer available —{" "}
+                <Link
+                  href="/cart"
+                  className="underline underline-offset-4 hover:text-foreground"
+                >
+                  review your cart
+                </Link>{" "}
+                to remove them.
+              </p>
+            )}
           </form>
 
           {/* Right: order summary */}

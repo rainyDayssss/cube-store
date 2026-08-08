@@ -8,6 +8,7 @@ import {
   useCartStore,
   type CartItem,
 } from "@/features/cart/lib/cart";
+import { useCartReconcile } from "@/features/cart/lib/use-cart-reconcile";
 import { Button } from "@/components/ui/button";
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
@@ -47,16 +48,47 @@ export function CartView() {
 
 function CartContents() {
   const items = useCartStore((state) => state.items);
+  const removeItem = useCartStore((state) => state.removeItem);
   const subtotal = cartSubtotal(items);
   const count = cartCount(items);
+  // Keep lines in line with the live catalog (ADR-0013): prices/stock refresh,
+  // retired Products get flagged. The returned result drives the notices.
+  const reconciled = useCartReconcile();
+  const unavailableCount = items.filter((item) => item.unavailable).length;
 
   return (
     <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
-      <ul className="divide-y divide-border rounded-xl border border-border bg-card">
-        {items.map((item) => (
-          <CartLine key={item.id} item={item} />
-        ))}
-      </ul>
+      <div className="min-w-0">
+        {reconciled && reconciled.updated.length > 0 && (
+          <p className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400">
+            Cart updated to match the current catalog.
+          </p>
+        )}
+        {unavailableCount > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2.5">
+            <p className="text-sm font-medium text-destructive">
+              {unavailableCount} item{unavailableCount === 1 ? " is" : "s are"} no longer
+              available.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                items
+                  .filter((item) => item.unavailable)
+                  .forEach((item) => removeItem(item.id));
+              }}
+            >
+              Remove unavailable
+            </Button>
+          </div>
+        )}
+        <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+          {items.map((item) => (
+            <CartLine key={item.id} item={item} />
+          ))}
+        </ul>
+      </div>
 
       <aside className="h-fit rounded-xl border border-border bg-card p-5 lg:sticky lg:top-24">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -80,9 +112,15 @@ function CartContents() {
             <dd className="tabular-nums">{priceFormatter.format(subtotal)}</dd>
           </div>
         </dl>
-        <Button asChild size="lg" className="mt-5 w-full">
-          <Link href="/checkout">Checkout</Link>
-        </Button>
+        {unavailableCount > 0 ? (
+          <Button size="lg" className="mt-5 w-full" disabled>
+            Checkout
+          </Button>
+        ) : (
+          <Button asChild size="lg" className="mt-5 w-full">
+            <Link href="/checkout">Checkout</Link>
+          </Button>
+        )}
         <p className="mt-3 text-center text-xs text-muted-foreground">
           Stock is reserved when you place your order.
         </p>
@@ -94,7 +132,8 @@ function CartContents() {
 function CartLine({ item }: { item: CartItem }) {
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
-  const outOfStock = item.stock_quantity === 0;
+  const unavailable = item.unavailable === true;
+  const outOfStock = !unavailable && item.stock_quantity === 0;
 
   return (
     <li className="flex gap-4 p-4">
@@ -120,11 +159,15 @@ function CartLine({ item }: { item: CartItem }) {
             <p className="mt-0.5 text-sm text-muted-foreground">
               {priceFormatter.format(item.price)} each
             </p>
-            {outOfStock && (
+            {unavailable ? (
+              <p className="mt-1 text-xs font-semibold text-destructive">
+                No longer available — remove
+              </p>
+            ) : outOfStock ? (
               <p className="mt-1 text-xs font-medium text-destructive">
                 Out of stock — adjust or remove
               </p>
-            )}
+            ) : null}
           </div>
           <button
             type="button"
@@ -145,7 +188,7 @@ function CartLine({ item }: { item: CartItem }) {
               onClick={() => updateQuantity(item.id, item.quantity - 1)}
               disabled={item.quantity <= 1}
               aria-label="Decrease quantity"
-              className="flex h-full w-8 items-center justify-center rounded-l-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 sm:w-9"
+              className="flex h-full w-8 items-center justify-center rounded-l-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:w-9"
             >
               <Minus className="h-4 w-4" />
             </button>
@@ -155,9 +198,9 @@ function CartLine({ item }: { item: CartItem }) {
             <button
               type="button"
               onClick={() => updateQuantity(item.id, item.quantity + 1)}
-              disabled={item.quantity >= item.stock_quantity}
+              disabled={unavailable || item.quantity >= item.stock_quantity}
               aria-label="Increase quantity"
-              className="flex h-full w-8 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 sm:w-9"
+              className="flex h-full w-8 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:w-9"
             >
               <Plus className="h-4 w-4" />
             </button>

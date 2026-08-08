@@ -139,3 +139,121 @@ describe("cart store (ticket 05)", () => {
     expect(useCartStore.getState().hasHydrated).toBe(true);
   });
 });
+
+describe("cart reconciliation (ADR-0013)", () => {
+  beforeEach(() => {
+    freshStore();
+  });
+
+  it("refreshes price, name, image, and stock from the live product", () => {
+    const store = freshStore();
+    store.addItem(cube, 2);
+
+    const result = store.reconcile([
+      {
+        ...cube,
+        name: "3x3 Speed Cube v2",
+        price: 14.99,
+        stock_quantity: 4,
+        image_url: "new.png",
+      },
+    ]);
+
+    expect(useCartStore.getState().items[0]).toMatchObject({
+      name: "3x3 Speed Cube v2",
+      price: 14.99,
+      stock_quantity: 4,
+      image_url: "new.png",
+      quantity: 2,
+      unavailable: false,
+    });
+    expect(result.updated).toEqual(["p1"]);
+  });
+
+  it("clamps the quantity when live stock dropped below it", () => {
+    const store = freshStore();
+    store.addItem(cube, 5); // at the add-time snapshot stock
+
+    store.reconcile([{ ...cube, stock_quantity: 2 }]);
+
+    expect(useCartStore.getState().items[0].quantity).toBe(2);
+  });
+
+  it("holds the line at quantity 1 when live stock reaches zero", () => {
+    const store = freshStore();
+    store.addItem(cube, 3);
+
+    store.reconcile([{ ...cube, stock_quantity: 0 }]);
+
+    expect(useCartStore.getState().items[0].quantity).toBe(1);
+  });
+
+  it("flags a deleted product (absent from the live list) as unavailable", () => {
+    const store = freshStore();
+    store.addItem(cube, 1);
+    store.addItem(pyraminx, 1);
+
+    const result = store.reconcile([pyraminx]); // cube was deleted
+
+    expect(
+      useCartStore.getState().items.find((item) => item.id === "p1"),
+    ).toMatchObject({ unavailable: true });
+    expect(result.unavailable).toEqual(["p1"]);
+  });
+
+  it("flags an inactive (retired) product as unavailable", () => {
+    const store = freshStore();
+    store.addItem(cube, 1);
+
+    store.reconcile([{ ...cube, status: "inactive" }]);
+
+    expect(useCartStore.getState().items[0].unavailable).toBe(true);
+  });
+
+  it("clears the flag and reports the line when the product becomes active again", () => {
+    const store = freshStore();
+    store.addItem(cube, 1);
+    store.reconcile([{ ...cube, status: "inactive" }]);
+
+    const result = store.reconcile([{ ...cube, status: "active" }]);
+
+    expect(useCartStore.getState().items[0]).toMatchObject({
+      unavailable: false,
+      price: 12.99,
+    });
+    expect(result.updated).toEqual(["p1"]);
+  });
+
+  it("does not re-report a cart that already matches the catalog", () => {
+    const store = freshStore();
+    store.addItem(cube, 2);
+
+    expect(store.reconcile([cube]).updated).toEqual([]);
+    expect(store.reconcile([cube]).unavailable).toEqual([]);
+  });
+
+  it("only reports a newly-flagged product once", () => {
+    const store = freshStore();
+    store.addItem(cube, 1);
+    store.addItem(pyraminx, 1);
+
+    store.reconcile([pyraminx]);
+    const second = store.reconcile([pyraminx]);
+
+    expect(second.unavailable).toEqual([]); // already flagged
+    expect(
+      useCartStore.getState().items.find((item) => item.id === "p1"),
+    ).toMatchObject({ unavailable: true });
+  });
+
+  it("skips the store write when nothing changed (same array reference)", () => {
+    const store = freshStore();
+    store.addItem(cube, 2);
+    const before = useCartStore.getState().items;
+
+    const result = store.reconcile([cube]); // already in sync
+
+    expect(result).toEqual({ updated: [], unavailable: [] });
+    expect(useCartStore.getState().items).toBe(before);
+  });
+});

@@ -58,7 +58,7 @@ export function AddToCart({ product }: { product: Product }) {
           onClick={() => setQuantity((q) => clamp(q - 1))}
           disabled={quantity <= 1}
           aria-label="Decrease quantity"
-          className="flex h-full w-10 items-center justify-center rounded-l-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          className="flex h-full w-10 items-center justify-center rounded-l-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Minus className="h-4 w-4" />
         </button>
@@ -73,7 +73,7 @@ export function AddToCart({ product }: { product: Product }) {
           onClick={() => setQuantity((q) => clamp(q + 1))}
           disabled={quantity >= maxQuantity}
           aria-label="Increase quantity"
-          className="flex h-full w-10 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          className="flex h-full w-10 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Plus className="h-4 w-4" />
         </button>
