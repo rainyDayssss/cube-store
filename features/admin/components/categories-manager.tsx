@@ -14,6 +14,7 @@ import {
 } from "@/features/admin/actions/categories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDeleteModal } from "@/features/admin/components/confirm-delete-modal";
 import { cn } from "@/lib/utils";
 
 type Toast = { id: number; message: string; tone: "success" | "error" };
@@ -28,7 +29,7 @@ export function CategoriesManager({
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
     null,
   );
-  const [confirming, setConfirming] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<CategoryWithCount | null>(null);
   // "create" while creating; a category id while renaming/deleting that row.
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -94,7 +95,7 @@ export function CategoriesManager({
     try {
       const result = await renameCategoryAction(id, name);
       if (result.ok) {
-        showToast("Category renamed", "success");
+        showToast(`"${name}" renamed`, "success");
         await refresh();
       } else {
         showToast(result.message, "error");
@@ -113,7 +114,7 @@ export function CategoriesManager({
     try {
       const result = await deleteCategoryAction(id);
       if (result.ok) {
-        showToast("Category deleted", "success");
+        showToast(`"${deleting?.name}" deleted`, "success");
         await refresh();
       } else {
         showToast(result.message, "error");
@@ -121,7 +122,7 @@ export function CategoriesManager({
     } finally {
       inFlightRef.current = false;
       setBusy(null);
-      setConfirming(null);
+      setDeleting(null);
     }
   }
 
@@ -168,33 +169,7 @@ export function CategoriesManager({
               key={category.id}
               className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
-              {confirming === category.id ? (
-                /* Confirm delete */
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm">
-                    Delete <span className="font-semibold">{category.name}</span>?
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={busy !== null}
-                    onClick={() => handleDelete(category.id)}
-                  >
-                    {busy === category.id && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                    Delete
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy !== null}
-                    onClick={() => setConfirming(null)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : renaming?.id === category.id ? (
+              {renaming?.id === category.id ? (
                 /* Inline rename */
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
@@ -248,13 +223,12 @@ export function CategoriesManager({
               )}
 
               {/* Row actions */}
-              {confirming !== category.id && renaming?.id !== category.id && (
+              {renaming?.id !== category.id && (
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     type="button"
                     onClick={() => {
                       setRenaming({ id: category.id, name: category.name });
-                      setConfirming(null);
                     }}
                     aria-label={`Rename ${category.name}`}
                     className={iconButton}
@@ -263,10 +237,7 @@ export function CategoriesManager({
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setConfirming(category.id);
-                      setRenaming(null);
-                    }}
+                    onClick={() => setDeleting(category)}
                     aria-label={`Delete ${category.name}`}
                     className={cn(
                       iconButton,
@@ -282,20 +253,81 @@ export function CategoriesManager({
         </ul>
       )}
 
+      {/* Delete confirmation modal */}
+      {deleting && (
+        <ConfirmDeleteModal
+          title="Delete category?"
+          message={`Are you sure you want to delete "${deleting.name}"? This action cannot be undone.`}
+          warning={
+            deleting.productCount > 0
+              ? `This category has ${deleting.productCount} product${deleting.productCount === 1 ? "" : "s"} linked. Deleting may fail due to the database constraint.`
+              : undefined
+          }
+          busy={busy === deleting.id}
+          onConfirm={() => void handleDelete(deleting.id)}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
-        <div
-          role="status"
-          className={cn(
-            "fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border px-4 py-3 text-sm font-medium shadow-lg",
-            toast.tone === "error"
-              ? "border-destructive/40 bg-destructive/10 text-destructive"
-              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-          )}
-        >
-          {toast.message}
-        </div>
+        <Toast message={toast.message} tone={toast.tone} onClose={() => setToast(null)} />
       )}
+    </div>
+  );
+}
+
+function Toast({
+  message,
+  tone,
+  onClose,
+}: {
+  message: string;
+  tone: "success" | "error";
+  onClose: () => void;
+}) {
+  const [progress, setProgress] = useState(100);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    const duration = 3500;
+    let frame: number;
+
+    function tick() {
+      const elapsed = Date.now() - startRef.current;
+      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
+      setProgress(remaining);
+      if (remaining > 0) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        onClose();
+      }
+    }
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [onClose]);
+
+  return (
+    <div
+      role="status"
+      className={cn(
+        "fixed top-4 right-4 z-50 max-w-sm overflow-hidden rounded-lg border shadow-lg",
+        tone === "error"
+          ? "border-destructive/40 bg-destructive/10 text-destructive"
+          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+      )}
+    >
+      <div className="px-4 py-3 text-sm font-medium">{message}</div>
+      <div className="h-1 w-full bg-black/10">
+        <div
+          className={cn(
+            "h-full transition-none",
+            tone === "error" ? "bg-destructive" : "bg-emerald-500",
+          )}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </div>
   );
 }

@@ -155,7 +155,7 @@ export function ProductFormModal({
         onSaved(
           mode === "create"
             ? `"${result.product.name}" created`
-            : `"${result.product.name}" saved`,
+            : `"${result.product.name}" updated`,
         );
         onClose();
       } else {

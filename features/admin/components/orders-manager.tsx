@@ -10,6 +10,7 @@ import {
   ordersToCsv,
   ORDER_STATUS_LABELS,
   ORDER_STATUSES,
+  PAYMENT_METHOD_LABELS,
   type OrderListItem,
   type OrderStatus,
 } from "@/features/admin/lib/orders/orders";
@@ -102,8 +103,8 @@ export function OrdersManager({
     if (inFlightRef.current) return;
     const message =
       next === "cancelled"
-        ? `${order.orderNumber} cancelled — stock restored`
-        : `${order.orderNumber} moved to ${ORDER_STATUS_LABELS[next]}`;
+        ? `Order ${order.orderNumber} cancelled. Stock restored.`
+        : `Order ${order.orderNumber} is now ${ORDER_STATUS_LABELS[next]}`;
     inFlightRef.current = true;
     setBusyId(order.id);
     try {
@@ -217,6 +218,7 @@ export function OrdersManager({
                 <th className="px-4 py-3 font-medium">Customer</th>
                 <th className="px-4 py-3 font-medium">Items</th>
                 <th className="px-4 py-3 font-medium">Total</th>
+                <th className="px-4 py-3 font-medium">Payment</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
@@ -250,6 +252,9 @@ export function OrdersManager({
                     </td>
                     <td className="px-4 py-3 tabular-nums font-medium">
                       {priceFormatter.format(order.totalAmount)}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {PAYMENT_METHOD_LABELS[order.paymentMethod]}
                     </td>
                     <td className="px-4 py-3">
                       <OrderStatusBadge status={order.status} />
@@ -324,18 +329,63 @@ export function OrdersManager({
 
       {/* Toast */}
       {toast && (
-        <div
-          role="status"
-          className={cn(
-            "fixed bottom-4 right-4 z-50 flex max-w-sm items-start gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg",
-            toast.tone === "error"
-              ? "border-destructive/40 bg-destructive/10 text-destructive"
-              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-          )}
-        >
-          <span>{toast.message}</span>
-        </div>
+        <Toast message={toast.message} tone={toast.tone} onClose={() => setToast(null)} />
       )}
+    </div>
+  );
+}
+
+function Toast({
+  message,
+  tone,
+  onClose,
+}: {
+  message: string;
+  tone: "success" | "error";
+  onClose: () => void;
+}) {
+  const [progress, setProgress] = useState(100);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    const duration = 3500;
+    let frame: number;
+
+    function tick() {
+      const elapsed = Date.now() - startRef.current;
+      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
+      setProgress(remaining);
+      if (remaining > 0) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        onClose();
+      }
+    }
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [onClose]);
+
+  return (
+    <div
+      role="status"
+      className={cn(
+        "fixed top-4 right-4 z-50 max-w-sm overflow-hidden rounded-lg border shadow-lg",
+        tone === "error"
+          ? "border-destructive/40 bg-destructive/10 text-destructive"
+          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+      )}
+    >
+      <div className="px-4 py-3 text-sm font-medium">{message}</div>
+      <div className="h-1 w-full bg-black/10">
+        <div
+          className={cn(
+            "h-full transition-none",
+            tone === "error" ? "bg-destructive" : "bg-emerald-500",
+          )}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </div>
   );
 }

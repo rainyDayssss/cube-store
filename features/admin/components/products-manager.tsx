@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductFormModal } from "@/features/admin/components/product-form-modal";
+import { ConfirmDeleteModal } from "@/features/admin/components/confirm-delete-modal";
 import { cn } from "@/lib/utils";
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
@@ -35,7 +36,7 @@ export function ProductsManager({
   const [searchDraft, setSearchDraft] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [confirming, setConfirming] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<AdminProduct | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -104,10 +105,7 @@ export function ProductsManager({
       const next = product.status === "active" ? "inactive" : "active";
       const result = await toggleProductStatusAction(product.id, next);
       if (result.ok) {
-        showToast(
-          `"${product.name}" is now ${next === "active" ? "visible" : "hidden"} in the storefront`,
-          "success",
-        );
+        showToast(`"${product.name}" is now ${next}`, "success");
         await refresh();
       } else {
         showToast(result.message, "error");
@@ -125,7 +123,7 @@ export function ProductsManager({
     try {
       const result = await deleteProductAction(id);
       if (result.ok) {
-        showToast("Product deleted", "success");
+        showToast(`"${deleting?.name}" deleted`, "success");
         await refresh();
       } else {
         showToast(result.message, "error");
@@ -133,7 +131,7 @@ export function ProductsManager({
     } finally {
       inFlightRef.current = false;
       setBusyId(null);
-      setConfirming(null);
+      setDeleting(null);
     }
   }
 
@@ -141,7 +139,9 @@ export function ProductsManager({
     "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
   const filteredProducts = statusFilter
-    ? products.filter((p) => p.status === statusFilter)
+    ? statusFilter === "out_of_stock"
+      ? products.filter((p) => p.stock_quantity === 0)
+      : products.filter((p) => p.status === statusFilter)
     : products;
 
   return (
@@ -188,6 +188,7 @@ export function ProductsManager({
             <option value="">All statuses</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
+            <option value="out_of_stock">Out of Stock</option>
           </select>
           <Button onClick={() => setModal({ mode: "create" })}>
             <PackagePlus className="h-4 w-4" />
@@ -203,15 +204,15 @@ export function ProductsManager({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-background">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Product</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Price</th>
-                <th className="px-4 py-3 font-medium">Stock</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Actions</th>
+                <th className="px-3 py-3 font-medium lg:px-4">Product</th>
+                <th className="px-3 py-3 font-medium lg:px-4">Category</th>
+                <th className="px-3 py-3 font-medium lg:px-4">Price</th>
+                <th className="px-3 py-3 font-medium lg:px-4">Stock</th>
+                <th className="px-3 py-3 font-medium lg:px-4">Status</th>
+                <th className="px-3 py-3 text-right font-medium lg:px-4">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -219,7 +220,7 @@ export function ProductsManager({
                 const outOfStock = product.stock_quantity === 0;
                 return (
                   <tr key={product.id} className={cn(product.status !== "active" && "opacity-70")}>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 lg:px-4">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
                           {/* eslint-disable-next-line @next/next/no-img-element -- admin thumbnails */}
@@ -231,17 +232,17 @@ export function ProductsManager({
                         </div>
                         <div className="min-w-0">
                           <p className="truncate font-medium">{product.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">
+                          <p className="hidden truncate text-xs text-muted-foreground lg:block">
                             {product.description || "No description"}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td className="px-3 py-3 text-muted-foreground lg:px-4">
                       {product.category_name ?? "—"}
                     </td>
-                    <td className="px-4 py-3 tabular-nums">{priceFormatter.format(product.price)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 tabular-nums lg:px-4">{priceFormatter.format(product.price)}</td>
+                    <td className="px-3 py-3 lg:px-4">
                       <span
                         className={cn(
                           "font-medium tabular-nums",
@@ -251,7 +252,7 @@ export function ProductsManager({
                         {product.stock_quantity}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 lg:px-4">
                       <button
                         type="button"
                         onClick={() => void handleToggle(product)}
@@ -281,49 +282,28 @@ export function ProductsManager({
                         {product.status === "active" ? "Active" : "Inactive"}
                       </button>
                     </td>
-                    <td className="px-4 py-3">
-                      {confirming === product.id ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={busyId !== null}
-                            onClick={() => void handleDelete(product.id)}
-                          >
-                            Delete
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={busyId !== null}
-                            onClick={() => setConfirming(null)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setModal({ mode: "edit", product })}
-                            aria-label={`Edit ${product.name}`}
-                            className={iconButton}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirming(product.id)}
-                            aria-label={`Delete ${product.name}`}
-                            className={cn(
-                              iconButton,
-                              "hover:bg-destructive/10 hover:text-destructive",
-                            )}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
+                    <td className="px-3 py-3 lg:px-4">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setModal({ mode: "edit", product })}
+                          aria-label={`Edit ${product.name}`}
+                          className={iconButton}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleting(product)}
+                          aria-label={`Delete ${product.name}`}
+                          className={cn(
+                            iconButton,
+                            "hover:bg-destructive/10 hover:text-destructive",
+                          )}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -347,20 +327,76 @@ export function ProductsManager({
         />
       )}
 
+      {/* Delete confirmation modal */}
+      {deleting && (
+        <ConfirmDeleteModal
+          title="Delete product?"
+          message={`Are you sure you want to delete "${deleting.name}"? This action cannot be undone.`}
+          busy={busyId === deleting.id}
+          onConfirm={() => void handleDelete(deleting.id)}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
-        <div
-          role="status"
-          className={cn(
-            "fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border px-4 py-3 text-sm font-medium shadow-lg",
-            toast.tone === "error"
-              ? "border-destructive/40 bg-destructive/10 text-destructive"
-              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-          )}
-        >
-          {toast.message}
-        </div>
+        <Toast message={toast.message} tone={toast.tone} onClose={() => setToast(null)} />
       )}
+    </div>
+  );
+}
+
+function Toast({
+  message,
+  tone,
+  onClose,
+}: {
+  message: string;
+  tone: "success" | "error";
+  onClose: () => void;
+}) {
+  const [progress, setProgress] = useState(100);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    const duration = 3500;
+    let frame: number;
+
+    function tick() {
+      const elapsed = Date.now() - startRef.current;
+      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
+      setProgress(remaining);
+      if (remaining > 0) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        onClose();
+      }
+    }
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [onClose]);
+
+  return (
+    <div
+      role="status"
+      className={cn(
+        "fixed top-4 right-4 z-50 max-w-sm overflow-hidden rounded-lg border shadow-lg",
+        tone === "error"
+          ? "border-destructive/40 bg-destructive/10 text-destructive"
+          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+      )}
+    >
+      <div className="px-4 py-3 text-sm font-medium">{message}</div>
+      <div className="h-1 w-full bg-black/10">
+        <div
+          className={cn(
+            "h-full transition-none",
+            tone === "error" ? "bg-destructive" : "bg-emerald-500",
+          )}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </div>
   );
 }

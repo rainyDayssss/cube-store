@@ -4,12 +4,10 @@ export function KpiCard({
   label,
   value,
   icon: Icon,
-  hint,
 }: {
   label: string;
   value: string;
   icon: LucideIcon;
-  hint?: string;
 }) {
   return (
     <div className="rounded-xl border border-border bg-background p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
@@ -20,7 +18,6 @@ export function KpiCard({
         </span>
       </div>
       <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

@@ -57,8 +57,8 @@ export function OrderStatusActions({
     if (inFlightRef.current) return;
     const message =
       target === "cancelled"
-        ? `${orderNumber} cancelled — stock restored`
-        : `${orderNumber} moved to ${ORDER_STATUS_LABELS[target]}`;
+        ? `Order ${orderNumber} cancelled. Stock restored.`
+        : `Order ${orderNumber} is now ${ORDER_STATUS_LABELS[target]}`;
     inFlightRef.current = true;
     setBusy(true);
     try {
