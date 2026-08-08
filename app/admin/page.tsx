@@ -28,37 +28,31 @@ export default async function AdminDashboardPage() {
       label: "Total Products",
       value: kpis.totalProducts.toLocaleString(),
       icon: Package,
-      hint: "Live count from the catalog",
     },
     {
       label: "Total Orders",
       value: kpis.totalOrders.toLocaleString(),
       icon: ShoppingCart,
-      hint: "All orders placed",
     },
     {
       label: "Pending Orders",
       value: kpis.pendingOrders.toLocaleString(),
       icon: Clock3,
-      hint: "Awaiting confirmation",
     },
     {
       label: "Completed Orders",
       value: kpis.completedOrders.toLocaleString(),
       icon: CheckCircle2,
-      hint: "Fulfilled orders",
     },
     {
       label: "Total Customers",
       value: kpis.totalCustomers.toLocaleString(),
       icon: Users,
-      hint: "Guest checkout customers",
     },
     {
       label: "Total Sales",
       value: currency.format(kpis.totalSales),
       icon: Banknote,
-      hint: "Excludes cancelled (ADR-0002)",
     },
   ];
 

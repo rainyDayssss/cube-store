@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AdminNav } from "@/features/admin/components/admin-nav";
+import { AdminShell } from "@/features/admin/components/admin-shell";
 import { AdminRefresh } from "@/features/admin/components/admin-refresh";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,18 +22,13 @@ export default async function AdminGate({
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <AdminShell>
       {/* Live updates (ADR-0011): Realtime-triggered router.refresh() so the
           open dashboard shows new orders, status moves, and customer
           aggregates without a reload. Rendered after the auth checks, so it
           never runs unauthenticated. */}
       <AdminRefresh />
-      <AdminNav />
-      <main className="md:pl-64">
-        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-          {children}
-        </div>
-      </main>
-    </div>
+      {children}
+    </AdminShell>
   );
 }
