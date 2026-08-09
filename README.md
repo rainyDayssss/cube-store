@@ -6,6 +6,8 @@ Customers browse a responsive storefront (catalog, product details, cart, guest 
 
 All 11 feature tickets are implemented and resolved, with **143/143 unit tests**, clean `tsc`/ESLint, and a verified production build.
 
+> **Seeded Admin account** — sign in at `/admin` with email **`admin@example.com`** and password **`admin123`**. Change the password after first login (see [Seeded Admin](#seeded-admin)).
+
 ## Features
 
 **Storefront (guest-only, no account needed)**
