@@ -13,9 +13,9 @@ import { Button } from "@/components/ui/button";
 import { ColumnHeader } from "@/components/ui/column-header";
 import { Input } from "@/components/ui/input";
 
-const priceFormatter = new Intl.NumberFormat("en-US", {
+const priceFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
-  currency: "USD",
+  currency: "PHP",
 });
 
 /**

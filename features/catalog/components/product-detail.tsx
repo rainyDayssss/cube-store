@@ -12,9 +12,9 @@ import { ProductCard } from "@/features/catalog/components/product-card";
 import { AddToCart } from "@/features/catalog/components/add-to-cart";
 import { Button } from "@/components/ui/button";
 
-const priceFormatter = new Intl.NumberFormat("en-US", {
+const priceFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
-  currency: "USD",
+  currency: "PHP",
 });
 
 export async function ProductDetail({
@@ -97,7 +97,7 @@ export async function ProductDetail({
           <div className="mt-2 grid gap-3 border-t border-border pt-5 text-sm">
             <div className="flex items-center gap-3 text-muted-foreground">
               <Truck className="h-4 w-4 shrink-0" />
-              <span>Free shipping on orders over $50</span>
+              <span>Free shipping on orders over ₱2,500</span>
             </div>
             <div className="flex items-center gap-3 text-muted-foreground">
               <PackageCheck className="h-4 w-4 shrink-0" />

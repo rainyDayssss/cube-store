@@ -6,9 +6,9 @@ import { useRef, useState } from "react";
 import type { Category, Product } from "@/features/catalog/lib/catalog";
 import { useCartStore } from "@/features/cart/lib/cart";
 
-const priceFormatter = new Intl.NumberFormat("en-US", {
+const priceFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
-  currency: "USD",
+  currency: "PHP",
 });
 
 export function ProductCard({

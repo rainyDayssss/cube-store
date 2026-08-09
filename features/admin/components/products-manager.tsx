@@ -17,9 +17,9 @@ import { ProductFormModal } from "@/features/admin/components/product-form-modal
 import { ConfirmDeleteModal } from "@/features/admin/components/confirm-delete-modal";
 import { cn } from "@/lib/utils";
 
-const priceFormatter = new Intl.NumberFormat("en-US", {
+const priceFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
-  currency: "USD",
+  currency: "PHP",
 });
 
 export type AdminProduct = Product & { category_name: string | null };

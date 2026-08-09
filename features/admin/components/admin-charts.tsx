@@ -13,9 +13,9 @@ import {
 } from "recharts";
 import type { ChartDataPoint } from "@/features/admin/lib/admin";
 
-const currency = new Intl.NumberFormat("en-US", {
+const currency = new Intl.NumberFormat("en-PH", {
   style: "currency",
-  currency: "USD",
+  currency: "PHP",
   maximumFractionDigits: 0,
 });
 
@@ -81,7 +81,7 @@ export function AdminCharts({ data }: { data: ChartDataPoint[] }) {
                 className="text-muted-foreground"
               />
               <YAxis
-                tickFormatter={(v: number) => `$${v}`}
+                tickFormatter={(v: number) => currency.format(v)}
                 tick={{ fontSize: 12 }}
                 className="text-muted-foreground"
               />

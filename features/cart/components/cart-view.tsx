@@ -11,9 +11,9 @@ import {
 import { useCartReconcile } from "@/features/cart/lib/use-cart-reconcile";
 import { Button } from "@/components/ui/button";
 
-const priceFormatter = new Intl.NumberFormat("en-US", {
+const priceFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
-  currency: "USD",
+  currency: "PHP",
 });
 
 export function CartView() {
@@ -112,7 +112,7 @@ function CartContents() {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Shipping</dt>
-            <dd className="font-medium">{subtotal >= 50 ? "Free" : "Calculated at checkout"}</dd>
+            <dd className="font-medium">{subtotal >= 2500 ? "Free" : "Calculated at checkout"}</dd>
           </div>
           <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
             <dt>Total</dt>

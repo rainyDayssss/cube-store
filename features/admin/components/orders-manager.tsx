@@ -25,9 +25,9 @@ import { Input } from "@/components/ui/input";
 import { StatusDropdown } from "@/components/ui/status-dropdown";
 import { cn } from "@/lib/utils";
 
-const priceFormatter = new Intl.NumberFormat("en-US", {
+const priceFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
-  currency: "USD",
+  currency: "PHP",
 });
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
