@@ -7,12 +7,13 @@
  * `createMockSupabase({ products: [...], ... })`.
  *
  * Supported: chainable `from(table).select/insert/update/delete` with eq/neq/
- * gt/gte/lt/lte/ilike/in filters, `order`, `limit`, `range`, `single`,
- * `maybeSingle`, column projection, `select(..., { count: "exact" })`
- * (total matching rows before range/limit, mirroring PostgREST), `rpc`
- * (registered via `mockRpc`), and `failNext` for forcing errors in
- * failure-path tests. Returned data is a copy, so mutating it never corrupts
- * the in-memory tables (use `.db` to assert on actual state).
+ * gt/gte/lt/lte/ilike/in filters, `order` (single or multi-column — repeated
+ * calls compose like PostgREST, first call is the primary key), `limit`,
+ * `range`, `single`, `maybeSingle`, column projection,
+ * `select(..., { count: "exact" })` (total matching rows before range/limit,
+ * mirroring PostgREST), `rpc` (registered via `mockRpc`), and `failNext` for
+ * forcing errors in failure-path tests. Returned data is a copy, so mutating
+ * it never corrupts the in-memory tables (use `.db` to assert on actual state).
  */
 
 type Row = Record<string, unknown>;
@@ -119,7 +120,7 @@ class MockContext {
 
 class MockQueryBuilder implements PromiseLike<QueryResult> {
   private filters: Filter[] = [];
-  private sort: { column: string; ascending: boolean } | null = null;
+  private sorts: { column: string; ascending: boolean }[] = [];
   private limitCount: number | null = null;
   private rangeStart: number | null = null;
   private rangeEnd: number | null = null;
@@ -180,7 +181,7 @@ class MockQueryBuilder implements PromiseLike<QueryResult> {
   // --- paging / shaping ---
 
   order(column: string, opts?: { ascending?: boolean }): this {
-    this.sort = { column, ascending: opts?.ascending ?? true };
+    this.sorts.push({ column, ascending: opts?.ascending ?? true });
     return this;
   }
 
@@ -273,9 +274,17 @@ class MockQueryBuilder implements PromiseLike<QueryResult> {
     // before range/limit pagination is applied.
     const count = this.countOption === "exact" ? matched.length : null;
 
-    if (this.sort) {
-      const { column, ascending } = this.sort;
-      matched = [...matched].sort((a, b) => compareValues(a[column], b[column], ascending));
+    if (this.sorts.length > 0) {
+      // PostgREST composes repeated `.order()` calls into one multi-column
+      // ORDER BY — the first call is the primary key. Reapplying the keys
+      // from least-significant to most-significant with a stable sort yields
+      // the same lexicographic order (a stable sort by the primary key last
+      // lets the secondary keys break only its ties).
+      matched = [...matched];
+      for (let i = this.sorts.length - 1; i >= 0; i--) {
+        const { column, ascending } = this.sorts[i];
+        matched.sort((a, b) => compareValues(a[column], b[column], ascending));
+      }
     }
 
     if (this.rangeStart !== null && this.rangeEnd !== null) {
