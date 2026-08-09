@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import type { AdminProduct } from "@/features/admin/components/products-manager";
 
 type FormState = {
@@ -51,6 +52,7 @@ export function ProductFormModal({
   const [fileError, setFileError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const inFlightRef = useRef(false);
   // Tracks the preview blob URL so it is always revoked (never leaked).
@@ -103,6 +105,23 @@ export function ProductFormModal({
     const url = URL.createObjectURL(selected);
     previewUrlRef.current = url;
     setPreview(url);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) handleFileChange(droppedFile);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -202,7 +221,17 @@ export function ProductFormModal({
             {/* Image */}
             <div>
               <Label>Image</Label>
-              <div className="mt-1.5 flex items-start gap-3">
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={cn(
+                  "mt-1.5 flex items-start gap-3 rounded-lg border-2 border-dashed p-4 transition-colors",
+                  dragging
+                    ? "border-primary bg-primary/5"
+                    : "border-border",
+                )}
+              >
                 <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
                   {preview ? (
                     // eslint-disable-next-line @next/next/no-img-element -- admin preview
@@ -211,9 +240,9 @@ export function ProductFormModal({
                     <ImagePlus className="h-6 w-6 text-muted-foreground" />
                   )}
                 </div>
-                <label className="flex min-w-0 flex-1 flex-col gap-1">
+                <label className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1">
                   <span className="inline-flex h-9 w-fit items-center rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-accent">
-                    {file ? "Change image…" : "Choose image…"}
+                    {dragging ? "Drop image here…" : file ? "Change image…" : "Choose image…"}
                   </span>
                   <input
                     type="file"
