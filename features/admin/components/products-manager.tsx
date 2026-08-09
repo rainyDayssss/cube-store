@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, PackagePlus, Pencil, Search, Trash2 } from "lucide-react";
+import { ArrowRight, Loader2, PackagePlus, Pencil, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { listAdminProducts } from "@/features/admin/lib/products/products";
 import type { Category, Product } from "@/features/catalog/lib/catalog";
@@ -10,6 +10,8 @@ import {
   toggleProductStatusAction,
 } from "@/features/admin/actions/products";
 import { Button } from "@/components/ui/button";
+import { ColumnHeader } from "@/components/ui/column-header";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Input } from "@/components/ui/input";
 import { ProductFormModal } from "@/features/admin/components/product-form-modal";
 import { ConfirmDeleteModal } from "@/features/admin/components/confirm-delete-modal";
@@ -36,8 +38,22 @@ export function ProductsManager({
   const [searchDraft, setSearchDraft] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [priceSort, setPriceSort] = useState<"asc" | "desc" | "">("");
+  const [stockSort, setStockSort] = useState<"asc" | "desc" | "">("");
   const [deleting, setDeleting] = useState<AdminProduct | null>(null);
+  const [toggling, setToggling] = useState<AdminProduct | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Sort conflict fix: only one sort can be active at a time
+  function handlePriceSortChange(value: "asc" | "desc" | "") {
+    setPriceSort(value);
+    if (value) setStockSort(""); // Clear stock sort
+  }
+
+  function handleStockSortChange(value: "asc" | "desc" | "") {
+    setStockSort(value);
+    if (value) setPriceSort(""); // Clear price sort
+  }
   const [modal, setModal] = useState<ModalState>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,14 +114,18 @@ export function ProductsManager({
   }, [searchDraft, categoryFilter, statusFilter]);
 
   async function handleToggle(product: AdminProduct) {
-    if (inFlightRef.current) return;
+    setToggling(product);
+  }
+
+  async function handleToggleConfirm() {
+    if (!toggling || inFlightRef.current) return;
     inFlightRef.current = true;
-    setBusyId(product.id);
+    setBusyId(toggling.id);
     try {
-      const next = product.status === "active" ? "inactive" : "active";
-      const result = await toggleProductStatusAction(product.id, next);
+      const next = toggling.status === "active" ? "inactive" : "active";
+      const result = await toggleProductStatusAction(toggling.id, next);
       if (result.ok) {
-        showToast(`"${product.name}" is now ${next}`, "success");
+        showToast(`"${toggling.name}" is now ${next}`, "success");
         await refresh();
       } else {
         showToast(result.message, "error");
@@ -113,6 +133,7 @@ export function ProductsManager({
     } finally {
       inFlightRef.current = false;
       setBusyId(null);
+      setToggling(null);
     }
   }
 
@@ -138,16 +159,49 @@ export function ProductsManager({
   const iconButton =
     "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
-  const filteredProducts = statusFilter
+  function clearFilters() {
+    setSearchDraft("");
+    setCategoryFilter("");
+    setStatusFilter("");
+    setPriceSort("");
+    setStockSort("");
+  }
+
+  // Apply status filter
+  let filteredProducts = statusFilter
     ? statusFilter === "out_of_stock"
       ? products.filter((p) => p.stock_quantity === 0)
       : products.filter((p) => p.status === statusFilter)
     : products;
 
+  // Apply price sort
+  if (priceSort) {
+    filteredProducts = [...filteredProducts].sort((a, b) =>
+      priceSort === "asc" ? a.price - b.price : b.price - a.price,
+    );
+  }
+
+  // Apply stock sort
+  if (stockSort) {
+    filteredProducts = [...filteredProducts].sort((a, b) =>
+      stockSort === "asc"
+        ? a.stock_quantity - b.stock_quantity
+        : b.stock_quantity - a.stock_quantity,
+    );
+  }
+
+  // Category filter options
+  const categoryOptions = categories.map((c) => ({ value: c.id, label: c.name }));
+  const statusOptions = [
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+    { value: "out_of_stock", label: "Out of Stock" },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      {/* Toolbar: search + create button */}
+      <div className="flex items-center gap-3">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -159,64 +213,70 @@ export function ProductsManager({
             className="pl-8"
           />
         </div>
-        <div className="flex items-center gap-3">
-          <label htmlFor="admin-category-filter" className="sr-only">
-            Filter by category
-          </label>
-          <select
-            id="admin-category-filter"
-            value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="">All categories</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="admin-status-filter" className="sr-only">
-            Filter by status
-          </label>
-          <select
-            id="admin-status-filter"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="out_of_stock">Out of Stock</option>
-          </select>
-          <Button onClick={() => setModal({ mode: "create" })}>
-            <PackagePlus className="h-4 w-4" />
-            New product
-          </Button>
-        </div>
+        <Button onClick={() => setModal({ mode: "create" })} className="shrink-0">
+          <PackagePlus className="h-4 w-4" />
+          <span className="hidden sm:inline">New product</span>
+        </Button>
       </div>
 
       {/* Table */}
-      {filteredProducts.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          No products match. Try a different search, category, or status.
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-background">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-3 py-3 font-medium lg:px-4">Product</th>
-                <th className="px-3 py-3 font-medium lg:px-4">Category</th>
-                <th className="px-3 py-3 font-medium lg:px-4">Price</th>
-                <th className="px-3 py-3 font-medium lg:px-4">Stock</th>
-                <th className="px-3 py-3 font-medium lg:px-4">Status</th>
-                <th className="px-3 py-3 text-right font-medium lg:px-4">Actions</th>
+      <div className="min-h-[400px] max-h-[600px] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-background">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-3 font-medium lg:px-4">Product</th>
+              <ColumnHeader
+                label="Category"
+                className="px-3 py-3 font-medium lg:px-4"
+                filterValue={categoryFilter}
+                filterOptions={categoryOptions}
+                onFilterChange={setCategoryFilter}
+              />
+              <ColumnHeader
+                label="Price"
+                className="px-3 py-3 font-medium lg:px-4"
+                sortValue={priceSort}
+                onSortChange={handlePriceSortChange}
+              />
+              <ColumnHeader
+                label="Stock"
+                className="px-3 py-3 font-medium lg:px-4"
+                sortValue={stockSort}
+                onSortChange={handleStockSortChange}
+              />
+              <ColumnHeader
+                label="Status"
+                className="px-3 py-3 font-medium lg:px-4"
+                filterValue={statusFilter}
+                filterOptions={statusOptions}
+                onFilterChange={setStatusFilter}
+              />
+              <th className="px-3 py-3 text-right font-medium lg:px-4">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {filteredProducts.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-3 py-16 text-center lg:px-4">
+                  <p className="text-sm text-muted-foreground">
+                    {products.length === 0
+                      ? "No products yet."
+                      : "No products match. Try a different search, category, or status."}
+                  </p>
+                  {products.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearFilters}
+                      className="mt-4"
+                    >
+                      Clear filters
+                    </Button>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredProducts.map((product) => {
+            ) : (
+              filteredProducts.map((product) => {
                 const outOfStock = product.stock_quantity === 0;
                 return (
                   <tr key={product.id} className={cn(product.status !== "active" && "opacity-70")}>
@@ -305,13 +365,13 @@ export function ProductsManager({
                         </button>
                       </div>
                     </td>
-                  </tr>
+                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {/* Create/edit modal */}
       {modal && (
@@ -337,6 +397,22 @@ export function ProductsManager({
           onCancel={() => setDeleting(null)}
         />
       )}
+
+      {/* Status toggle confirmation modal */}
+      {toggling && (() => {
+        const nextStatus = toggling.status === "active" ? "inactive" : "active";
+        return (
+          <ConfirmModal
+            title="Update product status?"
+            message={`Change "${toggling.name}" from "${toggling.status}" to "${nextStatus}"?`}
+            confirmLabel="Update status"
+            confirmIcon={ArrowRight}
+            busy={busyId === toggling.id}
+            onConfirm={() => void handleToggleConfirm()}
+            onCancel={() => setToggling(null)}
+          />
+        );
+      })()}
 
       {/* Toast */}
       {toast && (

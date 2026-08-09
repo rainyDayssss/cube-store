@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { LogoutButton } from "@/features/auth/components/logout-button";
 import { createClient } from "@/lib/supabase/client";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { useRouter } from "next/navigation";
 
 const navItems: {
@@ -100,23 +101,43 @@ function NavLink({
 
 function SidebarLogout({ collapsed }: { collapsed: boolean }) {
   const router = useRouter();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const logout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+    setBusy(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/auth/login");
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (collapsed) {
     return (
-      <button
-        type="button"
-        onClick={logout}
-        title="Logout"
-        className="flex w-full items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <LogOut className="h-4 w-4" />
-      </button>
+      <>
+        <button
+          type="button"
+          onClick={() => setShowConfirm(true)}
+          title="Logout"
+          className="flex w-full items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
+        {showConfirm && (
+          <ConfirmModal
+            title="Logout?"
+            message="Are you sure you want to logout? You will need to sign in again to access the admin dashboard."
+            confirmLabel="Logout"
+            confirmIcon={LogOut}
+            busy={busy}
+            onConfirm={logout}
+            onCancel={() => setShowConfirm(false)}
+          />
+        )}
+      </>
     );
   }
 

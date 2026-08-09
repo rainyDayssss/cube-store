@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Mail, Phone, ShoppingBag, Wallet } from "lucide-react";
+import { Eye, Mail, Phone, ShoppingBag, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCustomerDetail } from "@/features/admin/lib/customers/customers";
 import { OrderStatusBadge } from "@/features/admin/components/order-status-badge";
@@ -118,7 +118,8 @@ export default async function AdminCustomerDetailPage({
                   <th className="px-5 py-3 font-medium">Order</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium">Placed</th>
-                  <th className="px-5 py-3 text-right font-medium">Total</th>
+                  <th className="px-5 py-3 font-medium">Total</th>
+                  <th className="px-5 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -126,7 +127,7 @@ export default async function AdminCustomerDetailPage({
                   <tr key={order.id}>
                     <td className="px-5 py-3">
                       <Link
-                        href={`/admin/orders/${order.id}`}
+                        href={`/admin/orders/${order.id}?from=customer&customerId=${customer.id}`}
                         className="font-medium text-primary hover:underline"
                       >
                         {order.orderNumber}
@@ -140,6 +141,18 @@ export default async function AdminCustomerDetailPage({
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums font-medium">
                       {priceFormatter.format(order.totalAmount)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-end">
+                        <Link
+                          href={`/admin/orders/${order.id}?from=customer&customerId=${customer.id}`}
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          aria-label={`View details for ${order.orderNumber}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="hidden sm:inline text-xs font-medium">View</span>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

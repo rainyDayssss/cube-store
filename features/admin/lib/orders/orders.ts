@@ -47,7 +47,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: "Bank transfer",
 };
 
-const LIFECYCLE: Exclude<OrderStatus, "cancelled">[] = [
+export const LIFECYCLE: Exclude<OrderStatus, "cancelled">[] = [
   "pending",
   "confirmed",
   "preparing",
@@ -56,9 +56,9 @@ const LIFECYCLE: Exclude<OrderStatus, "cancelled">[] = [
 ];
 
 /**
- * Whether a move from `from` to `to` is legal: either the next lifecycle step
- * or a cancel from any non-terminal state. Mirrors the SQL guard in
- * `transition_order_status`.
+ * Whether a move from `from` to `to` is legal: one step forward, one step
+ * backward in the lifecycle, or cancel from any non-terminal state. Mirrors
+ * the SQL guard in `transition_order_status`.
  */
 export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   if (from === to) return false;
@@ -66,10 +66,11 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   if (to === "cancelled") return true;
   const fromIndex = LIFECYCLE.indexOf(from as (typeof LIFECYCLE)[number]);
   const toIndex = LIFECYCLE.indexOf(to as (typeof LIFECYCLE)[number]);
-  return fromIndex >= 0 && toIndex === fromIndex + 1;
+  if (fromIndex < 0 || toIndex < 0) return false;
+  return Math.abs(toIndex - fromIndex) === 1;
 }
 
-/** The legal next statuses for a row, in display order (next step, then cancel). */
+/** The legal next statuses for a row (one step only, for backward compat). */
 export function nextTransitions(from: OrderStatus): OrderStatus[] {
   const moves: OrderStatus[] = [];
   const fromIndex = LIFECYCLE.indexOf(from as (typeof LIFECYCLE)[number]);
@@ -77,6 +78,27 @@ export function nextTransitions(from: OrderStatus): OrderStatus[] {
     moves.push(LIFECYCLE[fromIndex + 1]);
   }
   if (from !== "completed" && from !== "cancelled") moves.push("cancelled");
+  return moves;
+}
+
+/**
+ * All reachable statuses from the current one: one step forward, one step
+ * backward, and cancel. For the status dropdown in the admin UI.
+ */
+export function availableTransitions(from: OrderStatus): OrderStatus[] {
+  if (from === "completed" || from === "cancelled") return [];
+  const moves: OrderStatus[] = [];
+  const fromIndex = LIFECYCLE.indexOf(from as (typeof LIFECYCLE)[number]);
+  // Previous step
+  if (fromIndex > 0) {
+    moves.push(LIFECYCLE[fromIndex - 1]);
+  }
+  // Next step
+  if (fromIndex >= 0 && fromIndex < LIFECYCLE.length - 1) {
+    moves.push(LIFECYCLE[fromIndex + 1]);
+  }
+  // Cancel
+  moves.push("cancelled");
   return moves;
 }
 

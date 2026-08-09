@@ -23,15 +23,17 @@ export type CustomerSummary = {
   totalSpent: number;
 };
 
-export const CUSTOMER_SORTS = ["name", "newest", "orders", "spent"] as const;
+export const CUSTOMER_SORTS = ["name", "newest", "orders-asc", "orders-desc", "spent-asc", "spent-desc"] as const;
 
 export type CustomerSort = (typeof CUSTOMER_SORTS)[number];
 
 export const CUSTOMER_SORT_LABELS: Record<CustomerSort, string> = {
   name: "Name",
   newest: "Newest customer",
-  orders: "Most orders",
-  spent: "Most spent",
+  "orders-asc": "Orders: Low to High",
+  "orders-desc": "Orders: High to Low",
+  "spent-asc": "Spent: Low to High",
+  "spent-desc": "Spent: High to Low",
 };
 
 /** Columns of the `customer_summaries` view (ADR-0012). */
@@ -85,9 +87,13 @@ export async function listCustomers(
   switch (params.sort ?? "name") {
     case "newest":
       return summaries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    case "orders":
+    case "orders-asc":
+      return summaries.sort((a, b) => a.orderCount - b.orderCount || byName(a, b));
+    case "orders-desc":
       return summaries.sort((a, b) => b.orderCount - a.orderCount || byName(a, b));
-    case "spent":
+    case "spent-asc":
+      return summaries.sort((a, b) => a.totalSpent - b.totalSpent || byName(a, b));
+    case "spent-desc":
       return summaries.sort((a, b) => b.totalSpent - a.totalSpent || byName(a, b));
     default:
       return summaries.sort(byName);

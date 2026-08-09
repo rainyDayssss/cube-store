@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Ban, Download, Loader2, Search } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, Ban, Download, Eye, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   listOrders,
-  nextTransitions,
+  availableTransitions,
   ordersToCsv,
+  LIFECYCLE,
   ORDER_STATUS_LABELS,
   ORDER_STATUSES,
   PAYMENT_METHOD_LABELS,
@@ -17,7 +19,10 @@ import {
 import { transitionOrderStatusAction } from "@/features/admin/actions/orders";
 import { OrderStatusBadge } from "@/features/admin/components/order-status-badge";
 import { Button } from "@/components/ui/button";
+import { ColumnHeader } from "@/components/ui/column-header";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Input } from "@/components/ui/input";
+import { StatusDropdown } from "@/components/ui/status-dropdown";
 import { cn } from "@/lib/utils";
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
@@ -43,18 +48,45 @@ export function OrdersManager({
   initialOrders: OrderListItem[];
   initialStatus?: OrderStatus;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [orders, setOrders] = useState(initialOrders);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">(
     initialStatus ?? "all",
   );
   const [searchDraft, setSearchDraft] = useState("");
+  const [itemsSort, setItemsSort] = useState<"asc" | "desc" | "">("");
+  const [totalSort, setTotalSort] = useState<"asc" | "desc" | "">("");
+  const [paymentFilter, setPaymentFilter] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<string | null>(null);
+  const [statusModal, setStatusModal] = useState<{
+    order: OrderListItem;
+    newStatus: OrderStatus;
+  } | null>(null);
+  const [showExportConfirm, setShowExportConfirm] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+
+  // Sort conflict fix: only one sort can be active at a time
+  function handleItemsSortChange(value: "asc" | "desc" | "") {
+    setItemsSort(value);
+    if (value) setTotalSort(""); // Clear total sort
+  }
+
+  function handleTotalSortChange(value: "asc" | "desc" | "") {
+    setTotalSort(value);
+    if (value) setItemsSort(""); // Clear items sort
+  }
+
+  function clearFilters() {
+    setSearchDraft("");
+    setStatusFilter("all");
+    setPaymentFilter("");
+    setItemsSort("");
+    setTotalSort("");
+  }
+
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Synchronous guard: `busyId` state applies on the next render, so a rapid
-  // double-click could otherwise fire two transitions and let a slower
-  // earlier response overwrite a newer one.
   const inFlightRef = useRef(false);
 
   // Clear the toast timer on unmount so a pending dismissal can't fire on a
@@ -86,10 +118,23 @@ export function OrdersManager({
     setOrders(await listOrders(supabase));
   }
 
+  function handleStatusFilterChange(status: OrderStatus | "all") {
+    setStatusFilter(status);
+    const params = new URLSearchParams(searchParams);
+    if (status === "all") {
+      params.delete("status");
+    } else {
+      params.set("status", status);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/admin/orders?${qs}` : "/admin/orders");
+  }
+
   const filtered = useMemo(() => {
     const q = searchDraft.trim().toLowerCase();
-    return orders.filter((order) => {
+    let result = orders.filter((order) => {
       if (statusFilter !== "all" && order.status !== statusFilter) return false;
+      if (paymentFilter && order.paymentMethod !== paymentFilter) return false;
       if (!q) return true;
       return (
         order.orderNumber.toLowerCase().includes(q) ||
@@ -97,7 +142,23 @@ export function OrdersManager({
         order.customerEmail.toLowerCase().includes(q)
       );
     });
-  }, [orders, statusFilter, searchDraft]);
+
+    // Apply items sort
+    if (itemsSort) {
+      result = [...result].sort((a, b) =>
+        itemsSort === "asc" ? a.itemsCount - b.itemsCount : b.itemsCount - a.itemsCount,
+      );
+    }
+
+    // Apply total sort
+    if (totalSort) {
+      result = [...result].sort((a, b) =>
+        totalSort === "asc" ? a.totalAmount - b.totalAmount : b.totalAmount - a.totalAmount,
+      );
+    }
+
+    return result;
+  }, [orders, statusFilter, paymentFilter, searchDraft, itemsSort, totalSort]);
 
   async function handleTransition(order: OrderListItem, next: OrderStatus) {
     if (inFlightRef.current) return;
@@ -118,7 +179,7 @@ export function OrdersManager({
     } finally {
       inFlightRef.current = false;
       setBusyId(null);
-      setConfirming(null);
+      setStatusModal(null);
     }
   }
 
@@ -158,7 +219,7 @@ export function OrdersManager({
         </div>
         <Button
           variant="outline"
-          onClick={handleExport}
+          onClick={() => setShowExportConfirm(true)}
           disabled={filtered.length === 0}
           className="w-full sm:w-auto"
         >
@@ -180,7 +241,7 @@ export function OrdersManager({
               key={status}
               type="button"
               aria-pressed={active}
-              onClick={() => setStatusFilter(status)}
+              onClick={() => handleStatusFilterChange(status)}
               className={cn(
                 "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                 active
@@ -203,31 +264,66 @@ export function OrdersManager({
       </div>
 
       {/* Table */}
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          {orders.length === 0
-            ? "No orders yet — they'll appear here as customers check out."
-            : "No orders match this view. Try a different status or search."}
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-background">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Order</th>
-                <th className="px-4 py-3 font-medium">Customer</th>
-                <th className="px-4 py-3 font-medium">Items</th>
-                <th className="px-4 py-3 font-medium">Total</th>
-                <th className="px-4 py-3 font-medium">Payment</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Actions</th>
+      <div className="min-h-[400px] max-h-[600px] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-background">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead>
+            <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="px-4 py-3 font-medium">Order</th>
+              <th className="px-4 py-3 font-medium">Customer</th>
+              <ColumnHeader
+                label="Items"
+                className="px-4 py-3 font-medium"
+                sortValue={itemsSort}
+                onSortChange={handleItemsSortChange}
+              />
+              <ColumnHeader
+                label="Total"
+                className="px-4 py-3 font-medium"
+                sortValue={totalSort}
+                onSortChange={handleTotalSortChange}
+              />
+              <ColumnHeader
+                label="Payment"
+                className="px-4 py-3 font-medium"
+                filterValue={paymentFilter}
+                filterOptions={Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({ value, label }))}
+                onFilterChange={setPaymentFilter}
+              />
+              <ColumnHeader
+                label="Status"
+                className="px-4 py-3 font-medium"
+                filterValue={statusFilter !== "all" ? statusFilter : ""}
+                filterOptions={ORDER_STATUSES.map((s) => ({ value: s, label: ORDER_STATUS_LABELS[s] }))}
+                onFilterChange={(v) => handleStatusFilterChange(v as OrderStatus | "all")}
+              />
+              <th className="px-4 py-3 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-16 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    {orders.length === 0
+                      ? "No orders yet — they'll appear here as customers check out."
+                      : "No orders match this view. Try a different status or search."}
+                  </p>
+                  {orders.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearFilters}
+                      className="mt-4"
+                    >
+                      Clear filters
+                    </Button>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((order) => {
-                const moves = nextTransitions(order.status);
-                const nextStep = moves.find((move) => move !== "cancelled");
-                const canCancel = moves.includes("cancelled");
+            ) : (
+              filtered.map((order) => {
+                const moves = availableTransitions(order.status);
+                const isTerminal = moves.length === 0;
                 return (
                   <tr key={order.id}>
                     <td className="px-4 py-3">
@@ -260,71 +356,95 @@ export function OrdersManager({
                       <OrderStatusBadge status={order.status} />
                     </td>
                     <td className="px-4 py-3">
-                      {confirming === order.id ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={busyId !== null}
-                            onClick={() => void handleTransition(order, "cancelled")}
-                          >
-                            {busyId === order.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Ban className="h-4 w-4" />
-                            )}
-                            Cancel order
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={busyId !== null}
-                            onClick={() => setConfirming(null)}
-                          >
-                            Keep
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-end gap-1.5">
-                          {nextStep && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={busyId !== null}
-                              onClick={() => void handleTransition(order, nextStep)}
-                            >
-                              {busyId === order.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              )}
-                              {ORDER_STATUS_LABELS[nextStep]}
-                            </Button>
-                          )}
-                          {canCancel && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={busyId !== null}
-                              onClick={() => setConfirming(order.id)}
-                              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <Ban className="h-3.5 w-3.5" />
-                              Cancel
-                            </Button>
-                          )}
-                          {moves.length === 0 && (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Link
+                          href={`/admin/orders/${order.id}`}
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          aria-label={`View details for ${order.orderNumber}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="hidden sm:inline text-xs font-medium">View</span>
+                        </Link>
+                        {!isTerminal && (() => {
+                          const fromIndex = LIFECYCLE.indexOf(order.status as (typeof LIFECYCLE)[number]);
+                          const statusOptions = [];
+                          if (fromIndex > 0) {
+                            statusOptions.push({
+                              value: LIFECYCLE[fromIndex - 1],
+                              label: ORDER_STATUS_LABELS[LIFECYCLE[fromIndex - 1]],
+                              hint: "previous",
+                            });
+                          }
+                          statusOptions.push({
+                            value: order.status,
+                            label: ORDER_STATUS_LABELS[order.status],
+                            hint: "current",
+                            disabled: true,
+                          });
+                          if (fromIndex < LIFECYCLE.length - 1) {
+                            statusOptions.push({
+                              value: LIFECYCLE[fromIndex + 1],
+                              label: ORDER_STATUS_LABELS[LIFECYCLE[fromIndex + 1]],
+                              hint: "next",
+                            });
+                          }
+                          statusOptions.push({
+                            value: "cancelled",
+                            label: "Cancel order",
+                          });
+                          return (
+                            <StatusDropdown
+                              label="Update status"
+                              options={statusOptions}
+                              busy={busyId !== null}
+                              onSelect={(v) => setStatusModal({ order, newStatus: v as OrderStatus })}
+                            />
+                          );
+                        })()}
+                        {isTerminal && (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
                     </td>
-                  </tr>
+                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Status change confirmation modal */}
+      {statusModal && (() => {
+        const isCancel = statusModal.newStatus === "cancelled";
+        return (
+          <ConfirmModal
+            title={isCancel ? "Cancel order?" : "Update order status?"}
+            message={isCancel
+              ? `Are you sure you want to cancel order ${statusModal.order.orderNumber}?`
+              : `Change order ${statusModal.order.orderNumber} from "${ORDER_STATUS_LABELS[statusModal.order.status]}" to "${ORDER_STATUS_LABELS[statusModal.newStatus]}"?`}
+            warning={isCancel ? "Stock will be restored automatically." : undefined}
+            confirmLabel={isCancel ? "Cancel order" : "Update status"}
+            confirmVariant={isCancel ? "destructive" : "default"}
+            confirmIcon={isCancel ? Ban : ArrowRight}
+            busy={busyId === statusModal.order.id}
+            onConfirm={() => void handleTransition(statusModal.order, statusModal.newStatus)}
+            onCancel={() => setStatusModal(null)}
+          />
+        );
+      })()}
+
+      {/* CSV export confirmation modal */}
+      {showExportConfirm && (
+        <ConfirmModal
+          title="Export orders?"
+          message={`Export the current filtered view (${filtered.length} orders) to CSV?`}
+          confirmLabel="Export CSV"
+          confirmIcon={Download}
+          busy={false}
+          onConfirm={() => { handleExport(); setShowExportConfirm(false); }}
+          onCancel={() => setShowExportConfirm(false)}
+        />
       )}
 
       {/* Toast */}

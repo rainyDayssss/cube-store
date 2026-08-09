@@ -2,24 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Loader2, Search, Users } from "lucide-react";
+import { Eye, Loader2, Search, Users } from "lucide-react";
 import {
-  CUSTOMER_SORT_LABELS,
-  CUSTOMER_SORTS,
   listCustomers,
   type CustomerSort,
   type CustomerSummary,
 } from "@/features/admin/lib/customers/customers";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { ColumnHeader } from "@/components/ui/column-header";
 import { Input } from "@/components/ui/input";
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-});
-
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
 });
 
 /**
@@ -81,10 +77,15 @@ export function CustomersManager({
     );
   }, [customers, searchDraft]);
 
+  function clearFilters() {
+    setSearchDraft("");
+    void handleSortChange("name");
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      {/* Toolbar: search only */}
+      <div className="flex items-center gap-3">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -96,59 +97,65 @@ export function CustomersManager({
             className="pl-8"
           />
         </div>
-        <div className="flex items-center gap-3">
-          <label htmlFor="admin-customer-sort" className="sr-only">
-            Sort customers
-          </label>
-          <div className="flex items-center gap-2">
-            <select
-              id="admin-customer-sort"
-              value={sort}
-              disabled={refreshing}
-              onChange={(event) => void handleSortChange(event.target.value as CustomerSort)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
-            >
-              {CUSTOMER_SORTS.map((value) => (
-                <option key={value} value={value}>
-                  {CUSTOMER_SORT_LABELS[value]}
-                </option>
-              ))}
-            </select>
-            {refreshing && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            )}
-          </div>
-        </div>
+        {refreshing && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
       </div>
 
       {/* Table */}
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          {customers.length === 0 ? (
-            <>
-              <Users className="mx-auto mb-2 h-6 w-6 opacity-50" />
-              No customers yet — they&apos;re created at checkout when guests
-              place their first order.
-            </>
-          ) : (
-            "No customers match this search."
-          )}
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-background">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Customer</th>
-                <th className="px-4 py-3 font-medium">Contact</th>
-                <th className="px-4 py-3 font-medium">Orders</th>
-                <th className="px-4 py-3 font-medium">Total spent</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">First order</th>
+      <div className="min-h-[400px] max-h-[600px] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-background">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead>
+            <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="px-4 py-3 font-medium">Customer</th>
+              <th className="px-4 py-3 font-medium">Contact</th>
+              <ColumnHeader
+                label="Orders"
+                className="px-4 py-3 font-medium"
+                sortValue={sort === "orders-asc" ? "asc" : sort === "orders-desc" ? "desc" : ""}
+                onSortChange={(v) => void handleSortChange(v ? `orders-${v}` as CustomerSort : "name")}
+              />
+              <ColumnHeader
+                label="Total spent"
+                className="px-4 py-3 font-medium"
+                sortValue={sort === "spent-asc" ? "asc" : sort === "spent-desc" ? "desc" : ""}
+                onSortChange={(v) => void handleSortChange(v ? `spent-${v}` as CustomerSort : "name")}
+              />
+              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-16 text-center">
+                  {customers.length === 0 ? (
+                    <>
+                      <Users className="mx-auto mb-2 h-6 w-6 opacity-50" />
+                      <p className="text-sm text-muted-foreground">
+                        No customers yet — they&apos;re created at checkout when guests
+                        place their first order.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        No customers match this search.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="mt-4"
+                      >
+                        Clear filters
+                      </Button>
+                    </>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((customer) => (
+            ) : (
+              filtered.map((customer) => (
                 <tr key={customer.id}>
                   <td className="px-4 py-3">
                     <Link
@@ -188,15 +195,24 @@ export function CustomersManager({
                         {customer.accountStatus === "active" ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {dateFormatter.format(new Date(customer.createdAt))}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end">
+                        <Link
+                          href={`/admin/customers/${customer.id}`}
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          aria-label={`View order history for ${customer.fullName}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="hidden sm:inline text-xs font-medium">View</span>
+                        </Link>
+                      </div>
                     </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                   </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
       <p className="text-xs text-muted-foreground">
         Order counts and totals exclude cancelled orders (computed live, never

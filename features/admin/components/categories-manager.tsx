@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Check, FolderPlus, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, FolderPlus, Loader2, Pencil, Search, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   listCategoriesWithCounts,
@@ -14,6 +14,7 @@ import {
 } from "@/features/admin/actions/categories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CategoryFormModal } from "@/features/admin/components/category-form-modal";
 import { ConfirmDeleteModal } from "@/features/admin/components/confirm-delete-modal";
 import { cn } from "@/lib/utils";
 
@@ -25,17 +26,15 @@ export function CategoriesManager({
   initialCategories: CategoryWithCount[];
 }) {
   const [categories, setCategories] = useState(initialCategories);
-  const [draft, setDraft] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
     null,
   );
   const [deleting, setDeleting] = useState<CategoryWithCount | null>(null);
-  // "create" while creating; a category id while renaming/deleting that row.
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Synchronous in-flight guard: `busy` state isn't applied until the next
-  // render, so rapid Enter presses could otherwise double-fire an action.
   const inFlightRef = useRef(false);
 
   useEffect(
@@ -45,9 +44,7 @@ export function CategoriesManager({
     [],
   );
 
-  // Live updates (ADR-0011): a Realtime-triggered router.refresh() hands down
-  // fresh props — follow them so renames, deletions, and product counts stay
-  // current without a reload.
+  // Live updates (ADR-0011)
   useEffect(() => {
     setCategories(initialCategories);
   }, [initialCategories]);
@@ -59,22 +56,18 @@ export function CategoriesManager({
     toastTimer.current = setTimeout(() => setToast(null), 3500);
   }
 
-  // Re-fetch with the browser client so product counts stay live (ticket 09
-  // will add Products; counts must reflect them without a redeploy).
   async function refresh() {
     const supabase = createClient();
     setCategories(await listCategoriesWithCounts(supabase));
   }
 
-  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy !== null || inFlightRef.current || !draft.trim()) return;
+  async function handleCreate(name: string) {
+    if (busy !== null || inFlightRef.current) return;
     inFlightRef.current = true;
     setBusy("create");
     try {
-      const result = await createCategoryAction(draft);
+      const result = await createCategoryAction(name);
       if (result.ok) {
-        setDraft("");
         showToast(`"${result.category.name}" created`, "success");
         await refresh();
       } else {
@@ -126,45 +119,46 @@ export function CategoriesManager({
     }
   }
 
+  const filtered = useMemo(() => {
+    const q = searchDraft.trim().toLowerCase();
+    if (!q) return categories;
+    return categories.filter((c) => c.name.toLowerCase().includes(q));
+  }, [categories, searchDraft]);
+
   const iconButton =
     "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Create */}
-      <form
-        onSubmit={handleCreate}
-        className="flex flex-col gap-3 sm:flex-row sm:items-center"
-      >
-        <Input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="New category name…"
-          aria-label="New category name"
-          className="sm:max-w-xs"
-        />
-        <Button
-          type="submit"
-          disabled={busy !== null || !draft.trim()}
-          className="w-full sm:w-auto"
-        >
-          {busy === "create" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <FolderPlus className="h-4 w-4" />
-          )}
-          Add category
+      {/* Toolbar: search + create button */}
+      <div className="flex items-center gap-3">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            placeholder="Search categories…"
+            aria-label="Search categories"
+            className="pl-8"
+          />
+        </div>
+        <Button onClick={() => setShowCreateModal(true)} className="shrink-0">
+          <FolderPlus className="h-4 w-4" />
+          <span className="hidden sm:inline">New category</span>
         </Button>
-      </form>
+      </div>
 
       {/* List */}
-      {categories.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          No categories yet — create the first one above.
+          {categories.length === 0
+            ? "No categories yet — create the first one above."
+            : "No categories match this search."}
         </div>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background">
-          {categories.map((category) => (
+        <ul className="min-h-[400px] max-h-[600px] divide-y divide-border overflow-y-auto rounded-xl border border-border bg-background">
+          {filtered.map((category) => (
             <li
               key={category.id}
               className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -251,6 +245,14 @@ export function CategoriesManager({
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Create modal */}
+      {showCreateModal && (
+        <CategoryFormModal
+          onClose={() => setShowCreateModal(false)}
+          onSaved={(name) => void handleCreate(name)}
+        />
       )}
 
       {/* Delete confirmation modal */}

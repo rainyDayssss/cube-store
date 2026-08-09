@@ -23,10 +23,13 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 
 export default async function AdminOrderDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string; customerId?: string }>;
 }) {
   const { id } = await params;
+  const { from, customerId } = await searchParams;
   const supabase = await createClient();
   const order = await getOrderDetail(supabase, id);
 
@@ -39,10 +42,10 @@ export default async function AdminOrderDetailPage({
             It may have been removed, or the link is out of date.
           </p>
           <Link
-            href="/admin/orders"
+            href={from === "customer" && customerId ? `/admin/customers/${customerId}` : "/admin/orders"}
             className="mt-4 inline-flex text-sm font-medium text-primary hover:underline"
           >
-            ← Back to orders
+            ← {from === "customer" ? "Back to customer" : "Back to orders"}
           </Link>
         </div>
       </div>
@@ -50,16 +53,18 @@ export default async function AdminOrderDetailPage({
   }
 
   const lineTotal = order.items.reduce((sum, item) => sum + item.lineTotal, 0);
+  const backHref = from === "customer" && customerId ? `/admin/customers/${customerId}` : `/admin/orders?status=${order.status}`;
+  const backLabel = from === "customer" ? "Back to customer" : "Orders";
 
   return (
     <div className="flex flex-col gap-8">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <Link
-          href="/admin/orders"
+          href={backHref}
           className="text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          ← Orders
+          ← {backLabel}
         </Link>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -141,16 +146,21 @@ export default async function AdminOrderDetailPage({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-                      —
+                    <div className="flex h-full w-full items-center justify-center text-[10px] font-medium text-muted-foreground">
+                      Deleted
                     </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{item.productName}</p>
                   <p className="text-xs text-muted-foreground">
-                    {item.quantity} × {priceFormatter.format(item.unitPrice)}
+                    ID: {item.productId ?? "N/A"} · {item.quantity} × {priceFormatter.format(item.unitPrice)}
                   </p>
+                  {!item.imageUrl && (
+                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                      Product deleted — name and ID preserved from order snapshot
+                    </p>
+                  )}
                 </div>
                 <p className="shrink-0 tabular-nums font-medium">
                   {priceFormatter.format(item.lineTotal)}
@@ -158,11 +168,19 @@ export default async function AdminOrderDetailPage({
               </li>
             ))}
           </ul>
-          <div className="flex items-center justify-between border-t border-border px-5 py-4">
-            <span className="text-sm font-medium text-muted-foreground">Total</span>
-            <span className="text-lg font-bold tabular-nums">
-              {priceFormatter.format(order.totalAmount)}
-            </span>
+          <div className="border-t border-border px-5 py-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium tabular-nums">
+                {priceFormatter.format(lineTotal)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-lg font-bold">
+              <span>Total</span>
+              <span className="tabular-nums">
+                {priceFormatter.format(order.totalAmount)}
+              </span>
+            </div>
           </div>
           {lineTotal !== order.totalAmount && (
             <p className="px-5 pb-4 text-xs text-muted-foreground">

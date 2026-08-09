@@ -2,14 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Ban, Loader2 } from "lucide-react";
+import { ArrowRight, Ban } from "lucide-react";
 import {
-  nextTransitions,
+  availableTransitions,
+  LIFECYCLE,
   ORDER_STATUS_LABELS,
   type OrderStatus,
 } from "@/features/admin/lib/orders/orders";
 import { transitionOrderStatusAction } from "@/features/admin/actions/orders";
-import { Button } from "@/components/ui/button";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { cn } from "@/lib/utils";
 
 export function OrderStatusActions({
@@ -23,19 +24,14 @@ export function OrderStatusActions({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [statusModal, setStatusModal] = useState<OrderStatus | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     tone: "success" | "error";
   } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Synchronous guard: `busy` state applies on the next render, so a rapid
-  // double-click could otherwise fire two transitions and let a slower
-  // earlier response overwrite a newer one.
   const inFlightRef = useRef(false);
 
-  // Clear the toast timer on unmount so a pending dismissal can't fire on a
-  // dead component.
   useEffect(
     () => () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -49,9 +45,8 @@ export function OrderStatusActions({
     toastTimer.current = setTimeout(() => setToast(null), 3500);
   }
 
-  const moves = nextTransitions(status);
-  const nextStep = moves.find((move) => move !== "cancelled");
-  const canCancel = moves.includes("cancelled");
+  const moves = availableTransitions(status);
+  const isTerminal = moves.length === 0;
 
   async function handleTransition(target: OrderStatus) {
     if (inFlightRef.current) return;
@@ -65,9 +60,7 @@ export function OrderStatusActions({
       const result = await transitionOrderStatusAction(orderId, target);
       if (result.ok) {
         showToast(message, "success");
-        // Close the prompt and re-run the server page so the status badge and
-        // view reflect the move — success only.
-        setConfirming(false);
+        setStatusModal(null);
         router.refresh();
       } else {
         showToast(result.message, "error");
@@ -80,54 +73,69 @@ export function OrderStatusActions({
 
   return (
     <div className="flex flex-col items-stretch gap-3 sm:items-end">
-      {confirming && canCancel ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm">
-            Cancel <span className="font-semibold">{orderNumber}</span>? Stock
-            is restored automatically.
-          </span>
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={busy}
-            onClick={() => void handleTransition("cancelled")}
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
-            Yes, cancel
-          </Button>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
-            Keep order
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          {nextStep && (
-            <Button size="sm" disabled={busy} onClick={() => void handleTransition(nextStep)}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              Mark {ORDER_STATUS_LABELS[nextStep].toLowerCase()}
-            </Button>
-          )}
-          {canCancel && (
-            <Button
-              size="sm"
-              variant="outline"
+      {!isTerminal && (() => {
+        const fromIndex = LIFECYCLE.indexOf(status as (typeof LIFECYCLE)[number]);
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value=""
+              onChange={(e) => {
+                const newStatus = e.target.value as OrderStatus;
+                if (newStatus) {
+                  setStatusModal(newStatus);
+                }
+              }}
               disabled={busy}
-              onClick={() => setConfirming(true)}
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              aria-label="Update order status"
             >
-              <Ban className="h-4 w-4" />
-              Cancel order
-            </Button>
-          )}
-          {moves.length === 0 && (
-            <span className="text-xs font-medium text-muted-foreground">
-              {status === "cancelled"
-                ? "This order is cancelled and cannot be changed."
-                : "This order is completed and cannot be changed."}
-            </span>
-          )}
-        </div>
+              <option value="">Update status</option>
+              {fromIndex > 0 && (
+                <option value={LIFECYCLE[fromIndex - 1]}>
+                  {ORDER_STATUS_LABELS[LIFECYCLE[fromIndex - 1]]} (previous)
+                </option>
+              )}
+              <option value="" disabled className="font-semibold">
+                {ORDER_STATUS_LABELS[status]} (current)
+              </option>
+              {fromIndex < LIFECYCLE.length - 1 && (
+                <option value={LIFECYCLE[fromIndex + 1]}>
+                  {ORDER_STATUS_LABELS[LIFECYCLE[fromIndex + 1]]} (next)
+                </option>
+              )}
+              <option value="cancelled">Cancel order</option>
+            </select>
+          </div>
+        );
+      })()}
+
+      {isTerminal && (
+        <span className="text-xs font-medium text-muted-foreground">
+          {status === "cancelled"
+            ? "This order is cancelled and cannot be changed."
+            : "This order is completed and cannot be changed."}
+        </span>
       )}
+
+      {/* Status change confirmation modal */}
+      {statusModal && (() => {
+        const isCancel = statusModal === "cancelled";
+        return (
+          <ConfirmModal
+            title={isCancel ? "Cancel order?" : "Update order status?"}
+            message={isCancel
+              ? `Are you sure you want to cancel order ${orderNumber}?`
+              : `Change order ${orderNumber} from "${ORDER_STATUS_LABELS[status]}" to "${ORDER_STATUS_LABELS[statusModal]}"?`}
+            warning={isCancel ? "Stock will be restored automatically." : undefined}
+            confirmLabel={isCancel ? "Cancel order" : "Update status"}
+            confirmVariant={isCancel ? "destructive" : "default"}
+            confirmIcon={isCancel ? Ban : ArrowRight}
+            busy={busy}
+            onConfirm={() => void handleTransition(statusModal)}
+            onCancel={() => setStatusModal(null)}
+          />
+        );
+      })()}
 
       {toast && (
         <div
