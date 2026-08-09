@@ -127,8 +127,10 @@ describe("listCustomers (ticket 11)", () => {
 
     expect((await listCustomers(toClient(mock), { sort: "name" })).map((r) => r.id)).toEqual(["cu1", "cu2"]);
     expect((await listCustomers(toClient(mock), { sort: "newest" })).map((r) => r.id)).toEqual(["cu2", "cu1"]);
-    expect((await listCustomers(toClient(mock), { sort: "orders" })).map((r) => r.id)).toEqual(["cu2", "cu1"]);
-    expect((await listCustomers(toClient(mock), { sort: "spent" })).map((r) => r.id)).toEqual(["cu2", "cu1"]);
+    expect((await listCustomers(toClient(mock), { sort: "orders-desc" })).map((r) => r.id)).toEqual(["cu2", "cu1"]);
+    expect((await listCustomers(toClient(mock), { sort: "orders-asc" })).map((r) => r.id)).toEqual(["cu1", "cu2"]);
+    expect((await listCustomers(toClient(mock), { sort: "spent-desc" })).map((r) => r.id)).toEqual(["cu2", "cu1"]);
+    expect((await listCustomers(toClient(mock), { sort: "spent-asc" })).map((r) => r.id)).toEqual(["cu1", "cu2"]);
   });
 
   it("returns an empty list when the view query fails", async () => {

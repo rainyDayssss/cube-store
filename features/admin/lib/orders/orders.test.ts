@@ -21,17 +21,11 @@ const toClient = (mock: MockSupabase) => mock as unknown as SupabaseClient;
  * rows and pin the TS mapping, filters, and search.
  *
  * The `transition_order_status` RPC is simulated faithfully below (ticket 10):
- * enforces the lifecycle (forward steps only, cancel from any non-terminal
- * state, terminal states immutable) and restores stock on cancel inside the
- * same operation. Tests assert on the mock's real tables via `mock.db`.
+ * enforces the lifecycle (one step forward or backward, no skipping; cancel
+ * from any non-terminal state; terminal states immutable) and restores stock
+ * on cancel inside the same operation. Tests assert on the mock's real tables
+ * via `mock.db`.
  */
-
-const NEXT_STEP: Record<"pending" | "confirmed" | "preparing" | "shipped", string> = {
-  pending: "confirmed",
-  confirmed: "preparing",
-  preparing: "shipped",
-  shipped: "completed",
-};
 
 function installTransitionOrderStatus(mock: MockSupabase): void {
   mock.mockRpc("transition_order_status", (args) => {
@@ -61,14 +55,14 @@ function installTransitionOrderStatus(mock: MockSupabase): void {
         } orders cannot be changed.`,
       };
     }
-    if (p_new_status !== "cancelled") {
-      const lifecycle = from as keyof typeof NEXT_STEP;
-      if (NEXT_STEP[lifecycle] !== p_new_status) {
-        return {
-          ok: false,
-          message: `Cannot move an order from ${from} directly to ${p_new_status}.`,
-        };
-      }
+    if (p_new_status !== "cancelled" && !canTransition(from as OrderStatus, p_new_status as OrderStatus)) {
+      // Bidirectional lifecycle (migration 20260809000001): one step forward
+      // or backward, no skipping. `canTransition` is the same rule the SQL
+      // function enforces, so the mock can never drift from it.
+      return {
+        ok: false,
+        message: `Cannot move an order from ${from} directly to ${p_new_status}.`,
+      };
     }
 
     if (p_new_status === "cancelled") {
@@ -438,16 +432,25 @@ describe("lifecycle rules (ticket 10)", () => {
     expect(nextTransitions("cancelled")).toEqual([]);
   });
 
-  it("rejects backward moves, skips, same-status, and terminal-state moves", () => {
-    expect(canTransition("confirmed", "pending")).toBe(false);
-    expect(canTransition("pending", "shipped")).toBe(false);
+  it("allows one step forward or backward, cancel from non-terminal states; rejects skips and terminal moves", () => {
+    // Same-status and skipping (forward or backward) are rejected.
     expect(canTransition("pending", "pending")).toBe(false);
+    expect(canTransition("pending", "shipped")).toBe(false);
+    expect(canTransition("preparing", "pending")).toBe(false);
+    // One step forward.
+    expect(canTransition("pending", "confirmed")).toBe(true);
+    expect(canTransition("shipped", "completed")).toBe(true);
+    // One step backward — bidirectional lifecycle (migration 20260809000001).
+    expect(canTransition("confirmed", "pending")).toBe(true);
+    expect(canTransition("shipped", "preparing")).toBe(true);
+    // Cancel from any non-terminal state.
+    expect(canTransition("pending", "cancelled")).toBe(true);
+    expect(canTransition("shipped", "cancelled")).toBe(true);
+    // Terminal states are immutable.
     expect(canTransition("completed", "cancelled")).toBe(false);
     expect(canTransition("cancelled", "pending")).toBe(false);
-    expect(canTransition("cancelled", "cancelled")).toBe(false);
     expect(canTransition("completed", "completed")).toBe(false);
-    expect(canTransition("pending", "confirmed")).toBe(true);
-    expect(canTransition("shipped", "cancelled")).toBe(true);
+    expect(canTransition("cancelled", "cancelled")).toBe(false);
   });
 });
 
@@ -472,12 +475,21 @@ describe("transitionOrderStatus (ticket 10)", () => {
     expect((mock.db.orders as OrderRow[])[0].status).toBe("pending");
   });
 
-  it("rejects a backward move", async () => {
-    const mock = makeMock([{ ...order1, status: "confirmed" }]);
-    const result = await transitionOrderStatus(toClient(mock), "o1", "pending");
-    expect(result).toMatchObject({ ok: false });
-    if (result.ok) return;
-    expect(result.message).toContain("directly to");
+  it("allows a one-step backward move but rejects a multi-step backward skip", async () => {
+    const mock = makeMock([
+      { ...order1, status: "confirmed" },
+      { ...order1, id: "o3", status: "preparing" },
+    ]);
+    const client = toClient(mock);
+
+    const back = await transitionOrderStatus(client, "o1", "pending");
+    expect(back).toEqual({ ok: true });
+    expect((mock.db.orders as OrderRow[]).find((o) => o.id === "o1")!.status).toBe("pending");
+
+    const skip = await transitionOrderStatus(client, "o3", "pending");
+    expect(skip).toMatchObject({ ok: false });
+    if (skip.ok) return;
+    expect(skip.message).toContain("directly to");
   });
 
   it("rejects cancelling a completed order", async () => {
@@ -587,6 +599,7 @@ describe("ordersToCsv (ticket 10)", () => {
         itemsCount: 1,
         customerName: 'Doe, "Jane"',
         customerEmail: "jane@example.com",
+        paymentMethod: "cod",
       },
     ]);
     expect(csv).toContain('"Doe, ""Jane"""');
