@@ -40,7 +40,10 @@ export function ProductsManager({
   const [statusFilter, setStatusFilter] = useState("");
   const [priceSort, setPriceSort] = useState<"asc" | "desc" | "">("");
   const [stockSort, setStockSort] = useState<"asc" | "desc" | "">("");
-  const [deleting, setDeleting] = useState<AdminProduct | null>(null);
+  const [canDelete, setCanDelete] = useState<{
+    product: AdminProduct;
+    allowed: boolean;
+  } | null>(null);
   const [toggling, setToggling] = useState<AdminProduct | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -137,6 +140,33 @@ export function ProductsManager({
     }
   }
 
+  async function handleDeleteClick(product: AdminProduct) {
+    // Check for active orders before showing modal
+    const supabase = createClient();
+    const { data: orderItems } = await supabase
+      .from("order_items")
+      .select("order_id")
+      .eq("product_id", product.id);
+
+    if (orderItems && orderItems.length > 0) {
+      const orderIds = [...new Set(orderItems.map((oi) => oi.order_id))];
+      const { count } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .in("id", orderIds)
+        .in("status", ["pending", "confirmed", "preparing", "shipped"]);
+
+      if (count && count > 0) {
+        // Has active orders — show warning modal
+        setCanDelete({ product, allowed: false });
+        return;
+      }
+    }
+
+    // No active orders — show normal confirmation modal
+    setCanDelete({ product, allowed: true });
+  }
+
   async function handleDelete(id: string) {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
@@ -144,7 +174,7 @@ export function ProductsManager({
     try {
       const result = await deleteProductAction(id);
       if (result.ok) {
-        showToast(`"${deleting?.name}" deleted`, "success");
+        showToast(`"${canDelete?.product.name}" deleted`, "success");
         await refresh();
       } else {
         showToast(result.message, "error");
@@ -152,7 +182,7 @@ export function ProductsManager({
     } finally {
       inFlightRef.current = false;
       setBusyId(null);
-      setDeleting(null);
+      setCanDelete(null);
     }
   }
 
@@ -354,7 +384,7 @@ export function ProductsManager({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setDeleting(product)}
+                          onClick={() => void handleDeleteClick(product)}
                           aria-label={`Delete ${product.name}`}
                           className={cn(
                             iconButton,
@@ -387,14 +417,29 @@ export function ProductsManager({
         />
       )}
 
-      {/* Delete confirmation modal */}
-      {deleting && (
+      {/* Delete modals */}
+      {canDelete && !canDelete.allowed && (
+        // Warning modal — product has active orders
+        <ConfirmModal
+          title="Cannot delete product"
+          message={`"${canDelete.product.name}" cannot be deleted because it has been ordered.`}
+          warning="Consider marking it as inactive instead."
+          confirmLabel="Close"
+          hideCancel={true}
+          busy={false}
+          onConfirm={() => setCanDelete(null)}
+          onCancel={() => setCanDelete(null)}
+        />
+      )}
+
+      {canDelete && canDelete.allowed && (
+        // Normal confirmation modal
         <ConfirmDeleteModal
           title="Delete product?"
-          message={`Are you sure you want to delete "${deleting.name}"? This action cannot be undone.`}
-          busy={busyId === deleting.id}
-          onConfirm={() => void handleDelete(deleting.id)}
-          onCancel={() => setDeleting(null)}
+          message={`Are you sure you want to delete "${canDelete.product.name}"? This action cannot be undone.`}
+          busy={busyId === canDelete.product.id}
+          onConfirm={() => void handleDelete(canDelete.product.id)}
+          onCancel={() => setCanDelete(null)}
         />
       )}
 

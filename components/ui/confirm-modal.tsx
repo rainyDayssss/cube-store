@@ -12,6 +12,7 @@ export type ConfirmModalProps = {
   confirmLabel: string;
   confirmVariant?: "default" | "destructive";
   confirmIcon?: LucideIcon;
+  hideCancel?: boolean;
   busy: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -24,6 +25,7 @@ export function ConfirmModal({
   confirmLabel,
   confirmVariant = "default",
   confirmIcon: ConfirmIcon,
+  hideCancel = false,
   busy,
   onConfirm,
   onCancel,
@@ -72,9 +74,11 @@ export function ConfirmModal({
           )}
         </div>
         <div className="flex items-center justify-end gap-3 px-6 py-4">
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
-            Cancel
-          </Button>
+          {!hideCancel && (
+            <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
+              Cancel
+            </Button>
+          )}
           <Button type="button" variant={confirmVariant} onClick={onConfirm} disabled={busy}>
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />

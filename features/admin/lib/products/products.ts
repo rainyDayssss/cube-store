@@ -163,11 +163,40 @@ export async function updateProductStatus(
  * `on delete set null`, so deleting leaves no orphaned rows — order history
  * keeps its price snapshots (ADR-0003). Returns the deleted row's `image_url`
  * so the caller can remove the Storage object (ADR-0008).
+ *
+ * Before deleting, checks if there are any active orders (pending, confirmed,
+ * preparing, shipped) that reference this product. If so, deletion is blocked
+ * to prevent stock restoration issues.
  */
 export async function deleteProduct(
   client: SupabaseClient,
   id: string,
 ): Promise<{ ok: true; image_url: string | null } | { ok: false; message: string }> {
+  // Step 1: Get order IDs that reference this product
+  const { data: orderItems } = await client
+    .from("order_items")
+    .select("order_id")
+    .eq("product_id", id);
+
+  // Step 2: Check if any of those orders are active
+  if (orderItems && orderItems.length > 0) {
+    const orderIds = [...new Set(orderItems.map((oi) => oi.order_id))];
+    const { count } = await client
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .in("id", orderIds)
+      .in("status", ["pending", "confirmed", "preparing", "shipped"]);
+
+    if (count && count > 0) {
+      return {
+        ok: false,
+        message:
+          "This product cannot be deleted because it has been ordered. Consider marking it as inactive instead.",
+      };
+    }
+  }
+
+  // Proceed with deletion
   const { data, error } = await client
     .from("products")
     .delete()
