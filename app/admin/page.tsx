@@ -11,9 +11,9 @@ import { AdminCharts } from "@/features/admin/components/admin-charts";
 import { getAdminKpis, getAdminChartData } from "@/features/admin/lib/admin";
 import { createClient } from "@/lib/supabase/server";
 
-const currency = new Intl.NumberFormat("en-US", {
+const currency = new Intl.NumberFormat("en-PH", {
   style: "currency",
-  currency: "USD",
+  currency: "PHP",
 });
 
 export default async function AdminDashboardPage() {
@@ -65,7 +65,7 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
         {cards.map((kpi) => (
           <KpiCard key={kpi.label} {...kpi} />
         ))}

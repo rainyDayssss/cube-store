@@ -173,7 +173,15 @@ export function AdminNav() {
   return (
     <>
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background px-4 md:hidden">
+      <header className="sticky top-0 z-40 flex h-16 items-center gap-2 border-b border-border bg-background px-4 md:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open navigation"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
         <Link
           href="/admin"
           className="flex items-center gap-2 font-semibold tracking-tight"
@@ -181,14 +189,6 @@ export function AdminNav() {
           <ShieldCheck className="h-5 w-5 text-primary" />
           Cube Store Admin
         </Link>
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Open navigation"
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
       </header>
 
       {/* Mobile drawer */}
@@ -196,8 +196,8 @@ export function AdminNav() {
         <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
-            aria-label="Close navigation"
-            className="absolute inset-0 bg-black/50"
+            aria-label="Close menu"
+            className="absolute inset-0 h-full w-full bg-black/50 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
           <div className="absolute inset-y-0 left-0 flex w-72 flex-col bg-background shadow-2xl">
@@ -209,8 +209,8 @@ export function AdminNav() {
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                aria-label="Close navigation"
-                className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Close menu"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <X className="h-5 w-5" />
               </button>
