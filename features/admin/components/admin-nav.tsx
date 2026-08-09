@@ -11,12 +11,12 @@ import {
   LogOut,
   Menu,
   Package,
-  ShieldCheck,
   ShoppingCart,
   Users,
   X,
   type LucideIcon,
 } from "lucide-react";
+import { CubeFace } from "@/components/cube-face";
 import { LogoutButton } from "@/features/auth/components/logout-button";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -186,7 +186,7 @@ export function AdminNav() {
           href="/admin"
           className="flex items-center gap-2 font-semibold tracking-tight"
         >
-          <ShieldCheck className="h-5 w-5 text-primary" />
+          <CubeFace size="sm" />
           Cube Store Admin
         </Link>
       </header>
@@ -203,7 +203,7 @@ export function AdminNav() {
           <div className="absolute inset-y-0 left-0 flex w-72 flex-col bg-background shadow-2xl">
             <div className="flex h-16 items-center justify-between border-b border-border px-4">
               <span className="flex items-center gap-2 font-semibold tracking-tight">
-                <ShieldCheck className="h-5 w-5 text-primary" />
+                <CubeFace size="sm" />
                 Cube Store Admin
               </span>
               <button
@@ -245,7 +245,7 @@ export function AdminNav() {
             collapsed ? "justify-center px-2" : "gap-2 px-5"
           }`}
         >
-          <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+          <CubeFace size="sm" />
           {!collapsed && (
             <span className="font-semibold tracking-tight">Cube Store Admin</span>
           )}

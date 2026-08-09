@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ShieldCheck } from "lucide-react";
+import { CubeFace } from "@/components/cube-face";
 import AdminGate from "@/features/admin/components/admin-gate";
 
 export default function AdminLayout({
@@ -11,10 +11,10 @@ export default function AdminLayout({
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-muted/30">
-          <div className="flex flex-col items-center gap-3">
-            <ShieldCheck className="h-8 w-8 animate-pulse text-primary" />
+          <div className="flex flex-col items-center gap-4">
+            <CubeFace size="md" animated />
             <p className="text-sm text-muted-foreground">
-              Checking your session…
+              Loading dashboard…
             </p>
           </div>
         </div>
