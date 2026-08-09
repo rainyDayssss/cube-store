@@ -18,13 +18,14 @@ import { submitCheckout, type CheckoutActionResponse } from "@/features/checkout
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { cn } from "@/lib/utils";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const priceFormatter = new Intl.NumberFormat("en-US", {
+const priceFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
-  currency: "USD",
+  currency: "PHP",
 });
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; hint: string }[] = [
@@ -65,6 +66,7 @@ export function CheckoutView() {
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormFields, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CheckoutActionResponse | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   // Snapshot of what was ordered, captured before the cart is cleared.
   const [confirmation, setConfirmation] = useState<{
     orderNumber: string;
@@ -147,10 +149,10 @@ export function CheckoutView() {
   if (!hasHydrated) {
     return (
       <div className="mx-auto w-full max-w-5xl px-5 py-10">
-        <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
+        <div className="h-8 w-40 animate-shimmer rounded-md" />
         <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
-          <div className="h-96 animate-pulse rounded-xl bg-muted" />
-          <div className="h-64 animate-pulse rounded-xl bg-muted" />
+          <div className="h-96 animate-shimmer rounded-xl" />
+          <div className="h-64 animate-shimmer rounded-xl" />
         </div>
       </div>
     );
@@ -307,10 +309,23 @@ export function CheckoutView() {
             <ErrorBanner result={result} onDismiss={() => setResult(null)} />
 
             <Button
-              type="submit"
+              type="button"
               size="lg"
               disabled={submitting || unavailableCount > 0}
               className="w-full sm:w-auto"
+              onClick={() => {
+                // Validate fields before opening confirmation modal
+                const errors: Partial<Record<keyof FormFields, string>> = {};
+                if (!fields.fullName.trim()) errors.fullName = "Full name is required.";
+                if (!EMAIL_RE.test(fields.email.trim())) errors.email = "Enter a valid email address.";
+                if (!fields.contactNumber.trim()) errors.contactNumber = "Contact number is required.";
+                if (!fields.deliveryAddress.trim()) errors.deliveryAddress = "Delivery address is required.";
+                if (Object.keys(errors).length > 0) {
+                  setFieldErrors(errors);
+                  return;
+                }
+                setConfirmOpen(true);
+              }}
             >
               {submitting ? (
                 <>
@@ -321,6 +336,25 @@ export function CheckoutView() {
                 `Place order · ${priceFormatter.format(subtotal)}`
               )}
             </Button>
+
+            {confirmOpen && (
+              <ConfirmModal
+                title="Place order?"
+                message={`You're about to place an order for ${priceFormatter.format(subtotal)} (${count} ${count === 1 ? "item" : "items"}). This will confirm your items and deduct stock.`}
+                confirmLabel="Place order"
+                busy={submitting}
+                onConfirm={() => {
+                  setConfirmOpen(false);
+                  // Trigger the actual form submission
+                  const form = document.querySelector("form");
+                  if (form) {
+                    const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
+                    form.dispatchEvent(submitEvent);
+                  }
+                }}
+                onCancel={() => setConfirmOpen(false)}
+              />
+            )}
             {unavailableCount > 0 && (
               <p className="mt-3 text-sm font-medium text-destructive">
                 Some items are no longer available —{" "}
@@ -369,7 +403,7 @@ export function CheckoutView() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Shipping</dt>
-                <dd className="font-medium">{subtotal >= 50 ? "Free" : "Calculated at checkout"}</dd>
+                <dd className="font-medium">{subtotal >= 2500 ? "Free" : "Calculated at checkout"}</dd>
               </div>
               <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
                 <dt>Total</dt>
@@ -595,7 +629,7 @@ function EmptyCheckout() {
       </div>
       <p className="mt-4 text-sm font-medium">Nothing to check out</p>
       <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-        Your cart is empty. Add a few cubes from the catalog first.
+        Your cart is empty. Add a few items from the catalog first.
       </p>
       <Button asChild className="mt-6">
         <Link href="/products">Browse products</Link>
