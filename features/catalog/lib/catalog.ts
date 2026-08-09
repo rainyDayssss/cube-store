@@ -66,6 +66,7 @@ export async function getFeaturedProducts(
     .select(PRODUCT_COLUMNS)
     .eq("status", "active")
     .order("created_at", { ascending: false })
+    .order("stock_quantity", { ascending: false })
     .limit(limit);
 
   if (error) return [];
@@ -122,11 +123,11 @@ export async function searchCatalog(
   }
 
   if (sort === "price-asc") {
-    query = query.order("price", { ascending: true });
+    query = query.order("price", { ascending: true }).order("stock_quantity", { ascending: false });
   } else if (sort === "price-desc") {
-    query = query.order("price", { ascending: false });
+    query = query.order("price", { ascending: false }).order("stock_quantity", { ascending: false });
   } else {
-    query = query.order("created_at", { ascending: false });
+    query = query.order("created_at", { ascending: false }).order("stock_quantity", { ascending: false });
   }
 
   const from = (page - 1) * pageSize;
@@ -185,6 +186,7 @@ export async function getRelatedProducts(
     .eq("category_id", categoryId)
     .neq("id", excludeId)
     .order("created_at", { ascending: false })
+    .order("stock_quantity", { ascending: false })
     .limit(limit);
 
   if (error) return [];

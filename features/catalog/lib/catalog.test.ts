@@ -36,7 +36,7 @@ describe("catalog service", () => {
 
     const products = await getFeaturedProducts(toClient(supabase), 2);
 
-    expect(products.map((p) => p.id)).toEqual(["p2", "p1"]);
+    expect(products.map((p) => p.id)).toEqual(["p1", "p2"]);
   });
 
   it("returns an empty array when the query errors", async () => {
@@ -71,14 +71,14 @@ describe("catalog search (ticket 03)", () => {
     const result = await searchCatalog(toClient(supabase));
 
     expect(result.total).toBe(4);
-    expect(result.products.map((p) => p.id)).toEqual(["p5", "p3", "p2", "p1"]);
+    expect(result.products.map((p) => p.id)).toEqual(["p5", "p3", "p1", "p2"]);
   });
 
   it("filters by name search (case-insensitive, substring)", async () => {
     const supabase = seed();
     const result = await searchCatalog(toClient(supabase), { q: "cube" });
 
-    expect(result.products.map((p) => p.id)).toEqual(["p5", "p2", "p1"]);
+    expect(result.products.map((p) => p.id)).toEqual(["p5", "p1", "p2"]);
     expect(result.total).toBe(3);
   });
 
@@ -86,7 +86,7 @@ describe("catalog search (ticket 03)", () => {
     const supabase = seed();
     const result = await searchCatalog(toClient(supabase), { q: "cube", categoryId: "c1" });
 
-    expect(result.products.map((p) => p.id)).toEqual(["p5", "p2", "p1"]);
+    expect(result.products.map((p) => p.id)).toEqual(["p5", "p1", "p2"]);
   });
 
   it("sorts by price ascending and descending", async () => {
@@ -106,7 +106,7 @@ describe("catalog search (ticket 03)", () => {
     expect(page1.total).toBe(4);
 
     const page2 = await searchCatalog(toClient(supabase), { page: 2, pageSize: 2 });
-    expect(page2.products.map((p) => p.id)).toEqual(["p2", "p1"]);
+    expect(page2.products.map((p) => p.id)).toEqual(["p1", "p2"]);
 
     const beyond = await searchCatalog(toClient(supabase), { page: 9, pageSize: 2 });
     expect(beyond.products).toEqual([]);
