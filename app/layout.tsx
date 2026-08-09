@@ -10,7 +10,8 @@ const defaultUrl = process.env.VERCEL_URL
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: "Cube Store",
-  description: "A modern storefront built with Next.js and Supabase",
+  description:
+    "Curious objects for mind and desk — speed cubes, brain teasers, desk toys, and collectibles.",
 };
 
 // Geist carries the UI (body copy, controls); Space Grotesk — geometric and

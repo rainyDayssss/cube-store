@@ -134,22 +134,22 @@ export async function ProductDetail({
 export function ProductDetailSkeleton() {
   return (
     <div className="mx-auto w-full max-w-5xl px-5 py-8">
-      <div className="h-8 w-28 animate-pulse rounded-md bg-muted" />
+      <div className="h-8 w-28 animate-shimmer rounded-md" />
       <div className="mt-6 grid gap-8 lg:grid-cols-2">
-        <div className="aspect-square animate-pulse rounded-2xl bg-muted" />
+        <div className="aspect-square animate-shimmer rounded-2xl" />
         <div className="flex flex-col gap-5">
-          <div className="h-4 w-24 animate-pulse rounded-md bg-muted" />
-          <div className="h-9 w-2/3 animate-pulse rounded-md bg-muted" />
-          <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
-          <div className="h-24 w-full animate-pulse rounded-md bg-muted" />
-          <div className="h-12 w-full animate-pulse rounded-md bg-muted" />
+          <div className="h-4 w-24 animate-shimmer rounded-md" />
+          <div className="h-9 w-2/3 animate-shimmer rounded-md" />
+          <div className="h-8 w-40 animate-shimmer rounded-md" />
+          <div className="h-24 w-full animate-shimmer rounded-md" />
+          <div className="h-12 w-full animate-shimmer rounded-md" />
         </div>
       </div>
       <div className="mt-16">
-        <div className="h-6 w-40 animate-pulse rounded-md bg-muted" />
+        <div className="h-6 w-40 animate-shimmer rounded-md" />
         <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="aspect-square animate-pulse rounded-xl bg-muted" />
+            <div key={index} className="aspect-square animate-shimmer rounded-xl" />
           ))}
         </div>
       </div>

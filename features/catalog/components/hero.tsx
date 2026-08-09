@@ -1,36 +1,100 @@
+"use client";
+
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CubeFace } from "@/components/cube-face";
+import { cn } from "@/lib/utils";
+
+const SLIDES = [
+  {
+    title: "New Arrivals",
+    description: "Fresh puzzles, brain teasers, and desk toys just landed.",
+    image: "https://images.unsplash.com/photo-1577401239170-897942555fb3?w=1400&h=700&fit=crop",
+  },
+  {
+    title: "Summer Sale",
+    description: "Up to 20% off selected items — limited time only.",
+    image: "https://images.unsplash.com/photo-1560343776-97e7d202ff0e?w=1400&h=700&fit=crop",
+  },
+  {
+    title: "Collectors Edition",
+    description: "Premium puzzles and desk objects for the serious enthusiast.",
+    image: "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=1400&h=700&fit=crop",
+  },
+];
 
 export function Hero() {
+  const [current, setCurrent] = useState(0);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopAutoplay = useCallback(() => {
+    if (timer.current) clearInterval(timer.current);
+  }, []);
+
+  const startAutoplay = useCallback(() => {
+    stopAutoplay();
+    timer.current = setInterval(() => {
+      setCurrent((i) => (i + 1) % SLIDES.length);
+    }, 5000);
+  }, [stopAutoplay]);
+
+  useEffect(() => {
+    startAutoplay();
+    return () => stopAutoplay();
+  }, [startAutoplay, stopAutoplay]);
+
+  function goTo(index: number) {
+    setCurrent(index);
+    startAutoplay();
+  }
+
   return (
-    <section className="relative overflow-hidden border-b border-border/60">
+    <section className="relative overflow-hidden">
+      {/* Rotating background slides */}
+      <div className="absolute inset-0 -z-30">
+        {SLIDES.map((slide, index) => (
+          <div
+            key={index}
+            aria-hidden={index !== current}
+            className={cn(
+              "absolute inset-0 bg-cover bg-center transition-opacity duration-1000",
+              index === current
+                ? "opacity-100 scale-100"
+                : "opacity-0 scale-105",
+            )}
+            style={{
+              backgroundImage: `url(${slide.image})`,
+              transition: "opacity 1s ease, transform 6s ease",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Gradient overlay — adapts to theme */}
+      <div className="absolute inset-0 -z-20 bg-gradient-to-br from-background/70 via-background/40 to-background/20 dark:from-background/80 dark:via-background/60 dark:to-background/40" />
+
       {/* Faint lattice — the cube's face grid, faded toward the edges. */}
       <div
         aria-hidden
-        className="bg-grid pointer-events-none absolute inset-0 -z-20 [mask-image:radial-gradient(ellipse_55%_55%_at_50%_30%,black,transparent)]"
-      />
-      {/* Cobalt glow behind the headline. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 mx-auto h-80 max-w-3xl rounded-full bg-gradient-to-b from-primary/15 to-transparent blur-3xl"
+        className="bg-grid pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_55%_55%_at_50%_30%,black,transparent)]"
       />
 
       <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-5 py-20 text-center sm:py-24">
         {/* The signature: a sticker face that scrambles and solves itself. */}
         <CubeFace size="md" animated />
 
-        <span className="rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-medium tracking-wide text-muted-foreground">
-          Fresh stock every week
-        </span>
-
         <h1 className="font-display text-4xl font-bold tracking-tight sm:text-6xl">
-          Everything you need, <span className="text-primary">cubed</span>.
+          Every piece, a{" "}
+          <span className="bg-gradient-to-br from-primary to-purple-600 bg-clip-text text-transparent">
+            new challenge
+          </span>
+          .
         </h1>
 
-        <p className="max-w-xl text-lg leading-relaxed text-muted-foreground">
-          Speed cubes, puzzles, and collectibles — curated, stocked, and ready
-          to ship from the Cube Store.
+        <p className="max-w-xl text-lg leading-relaxed text-foreground/70">
+          Speed cubes, brain teasers, desk toys, and collectibles — curated for
+          every kind of puzzler.
         </p>
 
         <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
@@ -46,6 +110,25 @@ export function Hero() {
             <Link href="/#categories">Browse by category</Link>
           </Button>
         </div>
+      </div>
+
+      {/* Slide indicators */}
+      <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
+        {SLIDES.map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            onClick={() => goTo(index)}
+            aria-label={`Go to slide ${index + 1}`}
+            aria-current={index === current ? "true" : undefined}
+            className={cn(
+              "h-2 rounded-full transition-all duration-300",
+              index === current
+                ? "w-6 bg-primary"
+                : "w-2 bg-muted-foreground/40 hover:bg-muted-foreground/60",
+            )}
+          />
+        ))}
       </div>
     </section>
   );

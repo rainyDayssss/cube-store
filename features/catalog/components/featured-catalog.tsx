@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
 import { getFeaturedCategories, getFeaturedProducts } from "@/features/catalog/lib/catalog";
 import { ProductCard } from "@/features/catalog/components/product-card";
-import { STICKER_COLORS } from "@/components/cube-palette";
 
 export async function FeaturedCatalog() {
   if (!hasEnvVars) {
@@ -39,21 +38,12 @@ export async function FeaturedCatalog() {
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {categories.map((category, index) => (
+            {categories.map((category) => (
               <Link
                 key={category.id}
                 href={`/products?category=${category.slug}`}
-                className="group relative flex h-24 flex-col justify-end overflow-hidden rounded-xl border border-border bg-gradient-to-b from-muted/60 to-muted p-4 transition-colors hover:border-primary/50"
+                className="group flex h-24 flex-col justify-end overflow-hidden rounded-xl border border-border bg-gradient-to-b from-muted/60 to-muted p-4 transition-colors hover:border-primary/50"
               >
-                {/* A sticker dot, cycling the palette — each tile keeps one
-                    accent from the cube face. */}
-                <span
-                  aria-hidden
-                  className="absolute right-3 top-3 h-2.5 w-2.5 rounded-[3px] transition-transform duration-300 group-hover:scale-125"
-                  style={{
-                    backgroundColor: STICKER_COLORS[index % STICKER_COLORS.length],
-                  }}
-                />
                 <span className="font-medium transition-colors group-hover:text-primary">
                   {category.name}
                 </span>
@@ -97,18 +87,18 @@ export function FeaturedCatalogSkeleton() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-14 px-5 py-14">
       <div className="space-y-5">
-        <div className="h-6 w-40 animate-pulse rounded-md bg-muted" />
+        <div className="h-6 w-40 animate-shimmer rounded-md" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-24 animate-pulse rounded-xl bg-muted" />
+            <div key={index} className="h-24 animate-shimmer rounded-xl" />
           ))}
         </div>
       </div>
       <div className="space-y-5">
-        <div className="h-6 w-48 animate-pulse rounded-md bg-muted" />
+        <div className="h-6 w-48 animate-shimmer rounded-md" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="aspect-square animate-pulse rounded-xl bg-muted" />
+            <div key={index} className="aspect-square animate-shimmer rounded-xl" />
           ))}
         </div>
       </div>

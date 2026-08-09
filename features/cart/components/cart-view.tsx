@@ -23,11 +23,11 @@ export function CartView() {
   if (!hasHydrated) {
     return (
       <div className="mx-auto w-full max-w-5xl px-5 py-10">
-        <div className="h-8 w-28 animate-pulse rounded-md bg-muted" />
-        <div className="mt-2 h-8 w-40 animate-pulse rounded-md bg-muted" />
+        <div className="h-8 w-28 animate-shimmer rounded-md" />
+        <div className="mt-2 h-8 w-40 animate-shimmer rounded-md" />
         <div className="mt-6 space-y-4">
           {Array.from({ length: 2 }).map((_, index) => (
-            <div key={index} className="h-24 animate-pulse rounded-xl bg-muted" />
+            <div key={index} className="h-24 animate-shimmer rounded-xl" />
           ))}
         </div>
       </div>
@@ -229,7 +229,7 @@ function EmptyCart() {
       </div>
       <p className="mt-4 text-sm font-medium">Your cart is empty</p>
       <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-        Add a few cubes from the catalog and they will appear here.
+        Add a few items from the catalog and they will appear here.
       </p>
       <Button asChild className="mt-6">
         <Link href="/products">Browse products</Link>

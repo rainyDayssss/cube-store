@@ -241,13 +241,13 @@ export function CatalogGridSkeleton() {
   return (
     <div className="mx-auto w-full max-w-5xl px-5 py-10">
       <div className="mb-6 space-y-2">
-        <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
-        <div className="h-4 w-56 animate-pulse rounded-md bg-muted" />
+        <div className="h-8 w-40 animate-shimmer rounded-md" />
+        <div className="h-4 w-56 animate-shimmer rounded-md" />
       </div>
-      <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+      <div className="h-9 w-full animate-shimmer rounded-md" />
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, index) => (
-          <div key={index} className="aspect-square animate-pulse rounded-xl bg-muted" />
+          <div key={index} className="aspect-square animate-shimmer rounded-xl" />
         ))}
       </div>
     </div>

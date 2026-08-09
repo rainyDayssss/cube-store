@@ -44,7 +44,7 @@ export function ProductCard({
   return (
     <Link
       href={`/products/${product.id}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
+      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
     >
       <div className="relative aspect-square overflow-hidden bg-muted">
         {/* eslint-disable-next-line @next/next/no-img-element -- remote images from seed/Storage */}
@@ -61,14 +61,17 @@ export function ProductCard({
           </span>
         )}
       </div>
+
       <div className="flex flex-1 flex-col gap-1 p-3">
         {categoryName && (
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             {categoryName}
           </p>
         )}
-        <h3 className="line-clamp-2 text-sm font-medium">{product.name}</h3>
-        <p className="mt-auto text-sm font-semibold">
+        <h3 className="line-clamp-2 text-sm font-medium leading-snug">
+          {product.name}
+        </h3>
+        <p className="mt-auto pt-1 font-display text-base font-bold tabular-nums">
           {priceFormatter.format(product.price)}
         </p>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">

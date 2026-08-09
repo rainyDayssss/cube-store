@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { StorefrontHeader } from "@/components/storefront-header";
 import { Hero } from "@/features/catalog/components/hero";
-import { PromoCarousel } from "@/features/catalog/components/promo-carousel";
 import {
   FeaturedCatalog,
   FeaturedCatalogSkeleton,
@@ -14,7 +13,6 @@ export default function Home() {
       <StorefrontHeader />
       <main className="flex-1">
         <Hero />
-        <PromoCarousel />
         <Suspense fallback={<FeaturedCatalogSkeleton />}>
           <FeaturedCatalog />
         </Suspense>

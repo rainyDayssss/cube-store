@@ -3,6 +3,7 @@ import { StorefrontDrawer } from "@/components/storefront-drawer";
 import { CatalogRefresh } from "@/features/catalog/components/catalog-refresh";
 import { CartBadge } from "@/features/cart/components/cart-badge";
 import { CubeFace } from "@/components/cube-face";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 // The storefront is guest-only (ADR-0001 / ADR-0007): it renders no auth UI
 // whatsoever. Admins reach the dashboard through its own URL and sign in there.
@@ -32,13 +33,16 @@ export function StorefrontHeader() {
         <nav className="hidden items-center gap-6 md:flex" aria-label="Store">
           <Link
             href="/products"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Products
           </Link>
         </nav>
 
-        <CartBadge className="ml-auto" />
+        <div className="ml-auto flex items-center gap-1">
+          <ThemeSwitcher />
+          <CartBadge />
+        </div>
       </div>
     </header>
   );
