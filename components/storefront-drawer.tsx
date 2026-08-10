@@ -26,9 +26,11 @@ export function StorefrontDrawer() {
       if (event.key === "Escape") setOpen(false);
     };
     document.addEventListener("keydown", onKeyDown);
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKeyDown);
+      document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
     };
   }, [open]);

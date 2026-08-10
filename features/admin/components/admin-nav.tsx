@@ -156,6 +156,22 @@ export function AdminNav() {
     if (stored === "true") setCollapsed(true);
   }, []);
 
+  // Lock background scroll + Escape key when mobile drawer is open.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
   function toggleCollapsed() {
     const next = !collapsed;
     setCollapsed(next);
