@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Space_Grotesk } from "next/font/google";
-import { ThemeProvider } from "next-themes";
+import { RouteAwareThemeProvider } from "@/components/route-aware-theme-provider";
 import "./globals.css";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -40,14 +40,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${spaceGrotesk.variable} font-sans antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <RouteAwareThemeProvider>
           {children}
-        </ThemeProvider>
+        </RouteAwareThemeProvider>
       </body>
     </html>
   );
