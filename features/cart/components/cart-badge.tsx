@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { cartCount, useCartStore } from "@/features/cart/lib/cart";
 
@@ -12,14 +13,16 @@ import { cartCount, useCartStore } from "@/features/cart/lib/cart";
 export function CartBadge({ className }: { className?: string }) {
   const items = useCartStore((state) => state.items);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
+  const pathname = usePathname();
 
   const count = hasHydrated ? cartCount(items) : 0;
   const showBadge = hasHydrated && count > 0;
+  const isCart = pathname === "/cart";
 
   return (
     <Link
       href="/cart"
-      className={`relative inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${className ?? ""}`}
+      className={`relative inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground ${isCart ? "text-foreground" : "text-muted-foreground"} ${className ?? ""}`}
       aria-label={`Cart, ${count} ${count === 1 ? "item" : "items"}`}
     >
       <ShoppingCart className="h-5 w-5" />

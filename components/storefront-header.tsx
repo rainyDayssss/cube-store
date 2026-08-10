@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { StorefrontDrawer } from "@/components/storefront-drawer";
 import { CatalogRefresh } from "@/features/catalog/components/catalog-refresh";
 import { CartBadge } from "@/features/cart/components/cart-badge";
-import { CubeFace } from "@/components/cube-face";
+import { StorefrontNav } from "@/components/storefront-nav";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 
 // The storefront is guest-only (ADR-0001 / ADR-0007): it renders no auth UI
@@ -19,31 +18,7 @@ export function StorefrontHeader() {
           <StorefrontDrawer />
         </div>
 
-        <Link
-          href="/"
-          className="flex shrink-0 items-center gap-2 transition-opacity hover:opacity-80"
-        >
-          {/* Static solved face — the signature mark in miniature. */}
-          <CubeFace size="sm" />
-          <span className="font-display text-sm font-semibold tracking-tight">
-            Cube Store
-          </span>
-        </Link>
-
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Store">
-          <Link
-            href="/products"
-            className="relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Products
-          </Link>
-          <Link
-            href="/track"
-            className="relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Track Order
-          </Link>
-        </nav>
+        <StorefrontNav />
 
         <div className="ml-auto flex items-center gap-1">
           <ThemeSwitcher />

@@ -1,37 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Menu, X } from "lucide-react";
-import { cartCount, useCartStore } from "@/features/cart/lib/cart";
 import { CubeFace } from "@/components/cube-face";
 
 const drawerLinks = [
   { href: "/", label: "Home" },
   { href: "/products", label: "Products" },
   { href: "/track", label: "Track Order" },
-  { href: "/cart", label: "Cart" },
 ];
-
-function CartCount() {
-  const items = useCartStore((state) => state.items);
-  const hasHydrated = useCartStore((state) => state.hasHydrated);
-  const count = hasHydrated ? cartCount(items) : 0;
-
-  if (!hasHydrated || count === 0) return null;
-  return (
-    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-      {count > 99 ? "99+" : count}
-    </span>
-  );
-}
 
 export function StorefrontDrawer() {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const hasOpened = useRef(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!open) return;
@@ -114,17 +101,22 @@ export function StorefrontDrawer() {
               </div>
 
               <nav className="flex flex-col gap-1">
-                {drawerLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setOpen(false)}
-                    className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
-                  >
-                    {link.label}
-                    {link.href === "/cart" && <CartCount />}
-                  </Link>
-                ))}
+                {drawerLinks.map((link) => {
+                  const active =
+                    link.href === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(link.href);
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setOpen(false)}
+                      className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors ${active ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted"}`}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
               </nav>
             </div>
           </div>,
