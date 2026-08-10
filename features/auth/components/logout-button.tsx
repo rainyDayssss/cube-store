@@ -25,7 +25,10 @@ export function LogoutButton() {
 
   return (
     <>
-      <Button onClick={() => setShowConfirm(true)}>Logout</Button>
+      <Button onClick={() => setShowConfirm(true)}>
+        <LogOut className="h-4 w-4" />
+        Logout
+      </Button>
       {showConfirm && (
         <ConfirmModal
           title="Logout?"
