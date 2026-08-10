@@ -73,9 +73,19 @@
   }
   html {
     @apply overflow-x-hidden;
+    scrollbar-gutter: stable;
   }
   body {
     @apply bg-background text-foreground;
+  }
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+  }
+  html .right-scroll-bar-position {
+    right: 0 !important;
+  }
+  html .width-before-scroll-bar {
+    margin-right: 0 !important;
   }
 }
 
