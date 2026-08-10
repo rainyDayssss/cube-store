@@ -5,7 +5,7 @@ import { Facebook, Instagram, Mail, MapPin, Phone } from "lucide-react";
 export function SiteFooter() {
   return (
     <footer className="w-full border-t border-border/60 bg-muted/30">
-      <div className="mx-auto w-full max-w-5xl px-5 py-10">
+      <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-5">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand + Newsletter */}
           <div className="flex flex-col gap-3">
