@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, FolderPlus, Loader2, Pencil, Search, Trash2, X } from "lucide-react";
+import { FolderPlus, Pencil, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   listCategoriesWithCounts,
@@ -16,9 +16,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategoryFormModal } from "@/features/admin/components/category-form-modal";
 import { ConfirmDeleteModal } from "@/features/admin/components/confirm-delete-modal";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
-type Toast = { id: number; message: string; tone: "success" | "error" };
+type ToastState = { message: string; tone: "success" | "error" };
 
 export function CategoriesManager({
   initialCategories,
@@ -28,33 +30,17 @@ export function CategoriesManager({
   const [categories, setCategories] = useState(initialCategories);
   const [searchDraft, setSearchDraft] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
-    null,
-  );
+  const [editing, setEditing] = useState<CategoryWithCount | null>(null);
   const [deleting, setDeleting] = useState<CategoryWithCount | null>(null);
+  const [cannotDelete, setCannotDelete] = useState<CategoryWithCount | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const inFlightRef = useRef(false);
-
-  useEffect(
-    () => () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    },
-    [],
-  );
 
   // Live updates (ADR-0011)
   useEffect(() => {
     setCategories(initialCategories);
   }, [initialCategories]);
-
-  function showToast(message: string, tone: Toast["tone"]) {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    const id = Date.now();
-    setToast({ id, message, tone });
-    toastTimer.current = setTimeout(() => setToast(null), 3500);
-  }
 
   async function refresh() {
     const supabase = createClient();
@@ -68,10 +54,10 @@ export function CategoriesManager({
     try {
       const result = await createCategoryAction(name);
       if (result.ok) {
-        showToast(`"${result.category.name}" created`, "success");
+        setToast({ message: `"${result.category.name}" created`, tone: "success" });
         await refresh();
       } else {
-        showToast(result.message, "error");
+        setToast({ message: result.message, tone: "error" });
       }
     } finally {
       inFlightRef.current = false;
@@ -79,24 +65,23 @@ export function CategoriesManager({
     }
   }
 
-  async function handleRename() {
-    if (!renaming || busy !== null || inFlightRef.current || !renaming.name.trim())
-      return;
-    const { id, name } = renaming;
+  async function handleRename(name: string) {
+    if (!editing || busy !== null || inFlightRef.current || !name.trim()) return;
+    const { id } = editing;
     inFlightRef.current = true;
     setBusy(id);
     try {
       const result = await renameCategoryAction(id, name);
       if (result.ok) {
-        showToast(`"${name}" renamed`, "success");
+        setToast({ message: `"${name}" renamed`, tone: "success" });
         await refresh();
       } else {
-        showToast(result.message, "error");
+        setToast({ message: result.message, tone: "error" });
       }
     } finally {
       inFlightRef.current = false;
       setBusy(null);
-      setRenaming(null);
+      setEditing(null);
     }
   }
 
@@ -107,15 +92,23 @@ export function CategoriesManager({
     try {
       const result = await deleteCategoryAction(id);
       if (result.ok) {
-        showToast(`"${deleting?.name}" deleted`, "success");
+        setToast({ message: `"${deleting?.name}" deleted`, tone: "success" });
         await refresh();
       } else {
-        showToast(result.message, "error");
+        setToast({ message: result.message, tone: "error" });
       }
     } finally {
       inFlightRef.current = false;
       setBusy(null);
       setDeleting(null);
+    }
+  }
+
+  function handleDeleteClick(category: CategoryWithCount) {
+    if (category.productCount > 0) {
+      setCannotDelete(category);
+    } else {
+      setDeleting(category);
     }
   }
 
@@ -161,87 +154,44 @@ export function CategoriesManager({
           {filtered.map((category) => (
             <li
               key={category.id}
-              className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex items-center justify-between p-4"
             >
-              {renaming?.id === category.id ? (
-                /* Inline rename */
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    value={renaming.name}
-                    onChange={(event) =>
-                      setRenaming({ ...renaming, name: event.target.value })
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") void handleRename();
-                      if (event.key === "Escape") setRenaming(null);
-                    }}
-                    aria-label={`Rename ${category.name}`}
-                    className="sm:w-64"
-                  />
-                  <Button
-                    size="sm"
-                    disabled={busy !== null || !renaming.name.trim()}
-                    onClick={() => void handleRename()}
-                  >
-                    {busy === category.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy !== null}
-                    onClick={() => setRenaming(null)}
-                  >
-                    <X className="h-4 w-4" />
-                    Cancel
-                  </Button>
+              {/* Category info */}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="truncate font-medium">{category.name}</p>
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {category.productCount} product
+                    {category.productCount === 1 ? "" : "s"}
+                  </span>
                 </div>
-              ) : (
-                /* Display */
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-medium">{category.name}</p>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                      {category.productCount} product
-                      {category.productCount === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    /{category.slug}
-                  </p>
-                </div>
-              )}
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  /{category.slug}
+                </p>
+              </div>
 
               {/* Row actions */}
-              {renaming?.id !== category.id && (
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRenaming({ id: category.id, name: category.name });
-                    }}
-                    aria-label={`Rename ${category.name}`}
-                    className={iconButton}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeleting(category)}
-                    aria-label={`Delete ${category.name}`}
-                    className={cn(
-                      iconButton,
-                      "hover:bg-destructive/10 hover:text-destructive",
-                    )}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setEditing(category)}
+                  aria-label={`Edit ${category.name}`}
+                  className={iconButton}
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteClick(category)}
+                  aria-label={`Delete ${category.name}`}
+                  className={cn(
+                    iconButton,
+                    "hover:bg-destructive/10 hover:text-destructive",
+                  )}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -250,8 +200,20 @@ export function CategoriesManager({
       {/* Create modal */}
       {showCreateModal && (
         <CategoryFormModal
+          mode="create"
           onClose={() => setShowCreateModal(false)}
           onSaved={(name) => void handleCreate(name)}
+        />
+      )}
+
+      {/* Edit modal */}
+      {editing && (
+        <CategoryFormModal
+          mode="edit"
+          initialName={editing.name}
+          initialSlug={editing.slug}
+          onClose={() => setEditing(null)}
+          onSaved={(name) => void handleRename(name)}
         />
       )}
 
@@ -260,76 +222,34 @@ export function CategoriesManager({
         <ConfirmDeleteModal
           title="Delete category?"
           message={`Are you sure you want to delete "${deleting.name}"? This action cannot be undone.`}
-          warning={
-            deleting.productCount > 0
-              ? `This category has ${deleting.productCount} product${deleting.productCount === 1 ? "" : "s"} linked. Deleting may fail due to the database constraint.`
-              : undefined
-          }
           busy={busy === deleting.id}
           onConfirm={() => void handleDelete(deleting.id)}
           onCancel={() => setDeleting(null)}
         />
       )}
 
+      {/* Cannot delete modal (category has products) */}
+      {cannotDelete && (
+        <ConfirmModal
+          title="Cannot delete category"
+          message={`"${cannotDelete.name}" cannot be deleted because it has ${cannotDelete.productCount} product${cannotDelete.productCount === 1 ? "" : "s"} linked.`}
+          warning="Remove or reassign the products first, then try again."
+          confirmLabel="Close"
+          hideCancel={true}
+          busy={false}
+          onConfirm={() => setCannotDelete(null)}
+          onCancel={() => setCannotDelete(null)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
-        <Toast message={toast.message} tone={toast.tone} onClose={() => setToast(null)} />
-      )}
-    </div>
-  );
-}
-
-function Toast({
-  message,
-  tone,
-  onClose,
-}: {
-  message: string;
-  tone: "success" | "error";
-  onClose: () => void;
-}) {
-  const [progress, setProgress] = useState(100);
-  const startRef = useRef(Date.now());
-
-  useEffect(() => {
-    const duration = 3500;
-    let frame: number;
-
-    function tick() {
-      const elapsed = Date.now() - startRef.current;
-      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
-      setProgress(remaining);
-      if (remaining > 0) {
-        frame = requestAnimationFrame(tick);
-      } else {
-        onClose();
-      }
-    }
-
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [onClose]);
-
-  return (
-    <div
-      role="status"
-      className={cn(
-        "fixed top-4 right-4 z-50 max-w-sm overflow-hidden rounded-lg border shadow-lg",
-        tone === "error"
-          ? "border-destructive/40 bg-destructive/10 text-destructive"
-          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-      )}
-    >
-      <div className="px-4 py-3 text-sm font-medium">{message}</div>
-      <div className="h-1 w-full bg-black/10">
-        <div
-          className={cn(
-            "h-full transition-none",
-            tone === "error" ? "bg-destructive" : "bg-emerald-500",
-          )}
-          style={{ width: `${progress}%` }}
+        <Toast
+          message={toast.message}
+          tone={toast.tone}
+          onClose={() => setToast(null)}
         />
-      </div>
+      )}
     </div>
   );
 }

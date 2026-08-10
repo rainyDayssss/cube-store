@@ -2,20 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FolderPlus, Loader2, X } from "lucide-react";
+import { FolderPlus, Loader2, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function CategoryFormModal({
+  mode = "create",
+  initialName = "",
+  initialSlug = "",
   onClose,
   onSaved,
 }: {
+  mode?: "create" | "edit";
+  initialName?: string;
+  initialSlug?: string;
   onClose: () => void;
-  onSaved: (message: string) => void;
+  onSaved: (name: string) => void;
 }) {
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
+  const [name, setName] = useState(initialName);
+  const [slug, setSlug] = useState(initialSlug);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -66,8 +72,6 @@ export function CategoryFormModal({
     setSubmitting(true);
     setError(null);
     try {
-      // The actual create logic is handled by the parent via onSaved.
-      // This modal just collects the data.
       onSaved(name.trim());
       onClose();
     } catch {
@@ -95,7 +99,7 @@ export function CategoryFormModal({
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 id="category-form-title" className="text-lg font-bold tracking-tight">
-            New category
+            {mode === "create" ? "New category" : "Edit category"}
           </h2>
           <button
             type="button"
@@ -151,10 +155,12 @@ export function CategoryFormModal({
             <Button type="submit" disabled={submitting}>
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
+              ) : mode === "create" ? (
                 <FolderPlus className="h-4 w-4" />
+              ) : (
+                <Pencil className="h-4 w-4" />
               )}
-              Create category
+              {mode === "create" ? "Create category" : "Save changes"}
             </Button>
           </div>
         </form>
