@@ -74,13 +74,13 @@ export async function ProductDetail({
                 </Link>
               </p>
             )}
-            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">
+            <h1 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">
               {product.name}
             </h1>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-3xl font-semibold">
+            <span className="text-2xl font-semibold sm:text-3xl">
               {priceFormatter.format(product.price)}
             </span>
             <StockBadge stockQuantity={product.stock_quantity} />

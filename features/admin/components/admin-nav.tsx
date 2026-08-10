@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { CubeFace } from "@/components/cube-face";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { LogoutButton } from "@/features/auth/components/logout-button";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -189,6 +190,9 @@ export function AdminNav() {
           <CubeFace size="sm" />
           Cube Store Admin
         </Link>
+        <div className="ml-auto">
+          <ThemeSwitcher />
+        </div>
       </header>
 
       {/* Mobile drawer */}
@@ -256,6 +260,9 @@ export function AdminNav() {
           ))}
         </nav>
         <div className="border-t border-border p-3">
+          <div className="mb-2">
+            <ThemeSwitcher />
+          </div>
           <SidebarLogout collapsed={collapsed} />
         </div>
 

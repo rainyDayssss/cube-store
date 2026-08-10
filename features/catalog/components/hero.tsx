@@ -80,7 +80,7 @@ export function Hero() {
         className="bg-grid pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_55%_55%_at_50%_30%,black,transparent)]"
       />
 
-      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-5 py-20 text-center sm:py-24">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-5 py-12 text-center sm:py-20">
         {/* The signature: a sticker face that scrambles and solves itself. */}
         <CubeFace size="md" animated />
 
@@ -97,17 +97,9 @@ export function Hero() {
           every kind of puzzler.
         </p>
 
-        <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
+        <div className="flex w-full justify-center sm:w-auto">
           <Button asChild size="lg" className="w-full sm:w-auto">
             <Link href="/products">Shop the catalog</Link>
-          </Button>
-          <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="w-full sm:w-auto"
-          >
-            <Link href="/#categories">Browse by category</Link>
           </Button>
         </div>
       </div>

@@ -146,7 +146,7 @@ function CartLine({ item }: { item: CartItem }) {
     <li className="flex gap-4 p-4">
       <Link
         href={`/products/${item.id}`}
-        className="block h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-muted"
+        className="block h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:h-20 sm:w-20"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- remote images from seed/Storage */}
         <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />

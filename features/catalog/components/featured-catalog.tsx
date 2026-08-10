@@ -15,85 +15,68 @@ export async function FeaturedCatalog() {
     getFeaturedProducts(supabase),
   ]);
 
-  if (categories.length === 0 && products.length === 0) {
+  if (products.length === 0) {
     return <EmptyCatalog />;
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-14 px-5 py-14">
+    <div className="mx-auto w-full max-w-5xl px-5 py-14">
+      {/* Category pills */}
       {categories.length > 0 && (
-        <section id="categories" aria-labelledby="featured-categories">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <h2
-              id="featured-categories"
-              className="font-display text-2xl font-semibold tracking-tight"
-            >
-              Shop by category
-            </h2>
-            <Link
-              href="/products"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              View all →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <section id="categories" aria-labelledby="featured-categories" className="mb-10">
+          <h2 id="featured-categories" className="sr-only">
+            Shop by category
+          </h2>
+          <div className="flex flex-wrap gap-2">
             {categories.map((category) => (
               <Link
                 key={category.id}
                 href={`/products?category=${category.slug}`}
-                className="group flex h-24 flex-col justify-end overflow-hidden rounded-xl border border-border bg-gradient-to-b from-muted/60 to-muted p-4 transition-colors hover:border-primary/50"
+                className="inline-flex items-center rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
               >
-                <span className="font-medium transition-colors group-hover:text-primary">
-                  {category.name}
-                </span>
-                <span className="mt-1 text-xs text-muted-foreground">
-                  Browse →
-                </span>
+                {category.name}
               </Link>
             ))}
           </div>
         </section>
       )}
 
-      {products.length > 0 && (
-        <section aria-labelledby="featured-products">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <h2
-              id="featured-products"
-              className="font-display text-2xl font-semibold tracking-tight"
-            >
-              Featured products
-            </h2>
-            <Link
-              href="/products"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              View all →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} categories={categories} />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Featured products */}
+      <section aria-labelledby="featured-products">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <h2
+            id="featured-products"
+            className="font-display text-2xl font-semibold tracking-tight"
+          >
+            Featured products
+          </h2>
+          <Link
+            href="/products"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            View all &rarr;
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} categories={categories} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
 
 export function FeaturedCatalogSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-14 px-5 py-14">
-      <div className="space-y-5">
-        <div className="h-6 w-40 animate-shimmer rounded-md" />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-24 animate-shimmer rounded-xl" />
-          ))}
-        </div>
+    <div className="mx-auto w-full max-w-5xl px-5 py-14">
+      {/* Category pills skeleton */}
+      <div className="mb-10 flex flex-wrap gap-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="h-9 w-24 animate-shimmer rounded-full" />
+        ))}
       </div>
+      {/* Products skeleton */}
       <div className="space-y-5">
         <div className="h-6 w-48 animate-shimmer rounded-md" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -126,7 +109,7 @@ function EmptyCatalog() {
       <div className="rounded-xl border border-dashed border-border p-8 text-center">
         <p className="text-sm font-medium">No products yet.</p>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          Once the catalog has Categories and Products, they will appear here.
+          Once the catalog has Products, they will appear here.
         </p>
       </div>
     </div>

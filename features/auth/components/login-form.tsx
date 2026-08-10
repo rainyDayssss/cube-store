@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
+import { CubeFace } from "@/components/cube-face";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -52,6 +53,12 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div className="flex flex-col items-center gap-2">
+        <CubeFace size="md" />
+        <span className="font-display text-lg font-bold tracking-tight">
+          Cube Store
+        </span>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
