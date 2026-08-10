@@ -26,6 +26,9 @@ export function CategoryFormModal({
   const [submitting, setSubmitting] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // Dirty check: compare current values with initial values.
+  const isDirty = mode === "create" || name.trim() !== initialName || slug.trim() !== initialSlug;
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -152,7 +155,7 @@ export function CategoryFormModal({
             <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || !isDirty}>
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : mode === "create" ? (

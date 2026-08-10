@@ -25,7 +25,7 @@ const priceFormatter = new Intl.NumberFormat("en-PH", {
 export type AdminProduct = Product & { category_name: string | null };
 
 type Toast = { id: number; message: string; tone: "success" | "error" };
-type ModalState = { mode: "create" } | { mode: "edit"; product: AdminProduct } | null;
+type ModalState = { mode: "create" } | { mode: "edit"; product: AdminProduct; hasOrders: boolean } | null;
 
 export function ProductsManager({
   initialProducts,
@@ -165,6 +165,29 @@ export function ProductsManager({
 
     // No active orders — show normal confirmation modal
     setCanDelete({ product, allowed: true });
+  }
+
+  async function handleEditClick(product: AdminProduct) {
+    // Check for active orders before opening edit modal
+    const supabase = createClient();
+    const { data: orderItems } = await supabase
+      .from("order_items")
+      .select("order_id")
+      .eq("product_id", product.id);
+
+    let hasActiveOrders = false;
+    if (orderItems && orderItems.length > 0) {
+      const orderIds = [...new Set(orderItems.map((oi) => oi.order_id))];
+      const { count } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .in("id", orderIds)
+        .in("status", ["pending", "confirmed", "preparing", "shipped"]);
+
+      hasActiveOrders = (count ?? 0) > 0;
+    }
+
+    setModal({ mode: "edit", product, hasOrders: hasActiveOrders });
   }
 
   async function handleDelete(id: string) {
@@ -376,7 +399,7 @@ export function ProductsManager({
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
-                          onClick={() => setModal({ mode: "edit", product })}
+                          onClick={() => void handleEditClick(product)}
                           aria-label={`Edit ${product.name}`}
                           className={iconButton}
                         >
@@ -408,6 +431,7 @@ export function ProductsManager({
         <ProductFormModal
           mode={modal.mode}
           product={modal.mode === "edit" ? modal.product : null}
+          hasOrders={modal.mode === "edit" ? modal.hasOrders : false}
           categories={categories}
           onClose={() => setModal(null)}
           onSaved={(message) => {

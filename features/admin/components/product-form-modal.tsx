@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ImagePlus, Loader2, X } from "lucide-react";
+import { AlertTriangle, ImagePlus, Loader2, X } from "lucide-react";
 import type { Category, ProductStatus } from "@/features/catalog/lib/catalog";
 import { validateImageFile } from "@/features/admin/lib/products/products";
 import {
@@ -27,12 +27,14 @@ type FormState = {
 export function ProductFormModal({
   mode,
   product,
+  hasOrders = false,
   categories,
   onClose,
   onSaved,
 }: {
   mode: "create" | "edit";
   product: AdminProduct | null;
+  hasOrders?: boolean;
   categories: Category[];
   onClose: () => void;
   onSaved: (message: string) => void;
@@ -57,6 +59,17 @@ export function ProductFormModal({
   const inFlightRef = useRef(false);
   // Tracks the preview blob URL so it is always revoked (never leaked).
   const previewUrlRef = useRef<string | null>(null);
+
+  // Dirty check: compare current form state with initial values.
+  const isDirty =
+    mode === "create" ||
+    form.name !== (product?.name ?? "") ||
+    form.category_id !== (product?.category_id ?? "") ||
+    form.price !== (product ? String(product.price) : "") ||
+    form.stock_quantity !== (product ? String(product.stock_quantity) : "") ||
+    form.status !== (product?.status ?? "active") ||
+    form.description !== (product?.description ?? "") ||
+    file !== null;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -186,6 +199,9 @@ export function ProductFormModal({
     }
   }
 
+  // Fields that are locked when the product has been ordered.
+  const lockedFields = hasOrders;
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
@@ -218,8 +234,19 @@ export function ProductFormModal({
 
         <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+            {/* Notice for ordered products */}
+            {lockedFields && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  This product has been ordered. Name, image, price, and category
+                  cannot be changed to preserve order history.
+                </p>
+              </div>
+            )}
+
             {/* Image */}
-            <div>
+            <div className={cn(lockedFields && "pointer-events-none opacity-50")}>
               <Label>Image</Label>
               <div
                 onDragOver={handleDragOver}
@@ -268,11 +295,12 @@ export function ProductFormModal({
                 value={form.name}
                 onChange={(event) => set("name", event.target.value)}
                 placeholder="Gan 356 M"
+                disabled={lockedFields}
               />
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Price (USD)" htmlFor="product-price">
+              <Field label="Price (PHP)" htmlFor="product-price">
                 <Input
                   id="product-price"
                   type="number"
@@ -282,6 +310,7 @@ export function ProductFormModal({
                   value={form.price}
                   onChange={(event) => set("price", event.target.value)}
                   placeholder="12.99"
+                  disabled={lockedFields}
                 />
               </Field>
               <Field label="Stock quantity" htmlFor="product-stock">
@@ -304,7 +333,8 @@ export function ProductFormModal({
                   id="product-category"
                   value={form.category_id}
                   onChange={(event) => set("category_id", event.target.value)}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  disabled={lockedFields}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">No category</option>
                   {categories.map((category) => (
@@ -352,7 +382,7 @@ export function ProductFormModal({
             <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || !isDirty}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {mode === "create" ? "Create product" : "Save changes"}
             </Button>
