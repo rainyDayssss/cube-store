@@ -40,10 +40,10 @@ export function Toast({
     <div
       role="status"
       className={cn(
-        "fixed top-4 right-4 z-50 max-w-sm overflow-hidden rounded-lg border shadow-lg",
+        "fixed top-4 right-4 z-50 max-w-sm overflow-hidden rounded-lg border bg-background shadow-lg",
         tone === "error"
-          ? "border-destructive/40 bg-destructive/10 text-destructive"
-          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+          ? "border-destructive text-destructive"
+          : "border-emerald-500 text-emerald-700 dark:text-emerald-400",
       )}
     >
       <div className="px-4 py-3 text-sm font-medium">{message}</div>

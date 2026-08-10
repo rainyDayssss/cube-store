@@ -15,6 +15,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Input } from "@/components/ui/input";
 import { ProductFormModal } from "@/features/admin/components/product-form-modal";
 import { ConfirmDeleteModal } from "@/features/admin/components/confirm-delete-modal";
+import { Toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 const priceFormatter = new Intl.NumberFormat("en-PH", {
@@ -487,61 +488,6 @@ export function ProductsManager({
       {toast && (
         <Toast message={toast.message} tone={toast.tone} onClose={() => setToast(null)} />
       )}
-    </div>
-  );
-}
-
-function Toast({
-  message,
-  tone,
-  onClose,
-}: {
-  message: string;
-  tone: "success" | "error";
-  onClose: () => void;
-}) {
-  const [progress, setProgress] = useState(100);
-  const startRef = useRef(Date.now());
-
-  useEffect(() => {
-    const duration = 3500;
-    let frame: number;
-
-    function tick() {
-      const elapsed = Date.now() - startRef.current;
-      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
-      setProgress(remaining);
-      if (remaining > 0) {
-        frame = requestAnimationFrame(tick);
-      } else {
-        onClose();
-      }
-    }
-
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [onClose]);
-
-  return (
-    <div
-      role="status"
-      className={cn(
-        "fixed top-4 right-4 z-50 max-w-sm overflow-hidden rounded-lg border shadow-lg",
-        tone === "error"
-          ? "border-destructive/40 bg-destructive/10 text-destructive"
-          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-      )}
-    >
-      <div className="px-4 py-3 text-sm font-medium">{message}</div>
-      <div className="h-1 w-full bg-black/10">
-        <div
-          className={cn(
-            "h-full transition-none",
-            tone === "error" ? "bg-destructive" : "bg-emerald-500",
-          )}
-          style={{ width: `${progress}%` }}
-        />
-      </div>
     </div>
   );
 }
