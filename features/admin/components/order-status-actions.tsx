@@ -11,7 +11,8 @@ import {
 } from "@/features/admin/lib/orders/orders";
 import { transitionOrderStatusAction } from "@/features/admin/actions/orders";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
-import { cn } from "@/lib/utils";
+import { StatusDropdown } from "@/components/ui/status-dropdown";
+import { Toast } from "@/components/ui/toast";
 
 export function OrderStatusActions({
   orderId,
@@ -29,21 +30,7 @@ export function OrderStatusActions({
     message: string;
     tone: "success" | "error";
   } | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightRef = useRef(false);
-
-  useEffect(
-    () => () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    },
-    [],
-  );
-
-  function showToast(message: string, tone: "success" | "error") {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast({ message, tone });
-    toastTimer.current = setTimeout(() => setToast(null), 3500);
-  }
 
   const moves = availableTransitions(status);
   const isTerminal = moves.length === 0;
@@ -59,11 +46,11 @@ export function OrderStatusActions({
     try {
       const result = await transitionOrderStatusAction(orderId, target);
       if (result.ok) {
-        showToast(message, "success");
+        setToast({ message, tone: "success" });
         setStatusModal(null);
         router.refresh();
       } else {
-        showToast(result.message, "error");
+        setToast({ message: result.message, tone: "error" });
       }
     } finally {
       inFlightRef.current = false;
@@ -71,43 +58,45 @@ export function OrderStatusActions({
     }
   }
 
+  const fromIndex = LIFECYCLE.indexOf(status as (typeof LIFECYCLE)[number]);
+
+  // Build status options for the dropdown (same pattern as orders manager)
+  const statusOptions: { value: string; label: string; hint?: string; disabled?: boolean }[] = [];
+  if (fromIndex > 0) {
+    statusOptions.push({
+      value: LIFECYCLE[fromIndex - 1],
+      label: ORDER_STATUS_LABELS[LIFECYCLE[fromIndex - 1]],
+      hint: "previous",
+    });
+  }
+  statusOptions.push({
+    value: status,
+    label: ORDER_STATUS_LABELS[status],
+    hint: "current",
+    disabled: true,
+  });
+  if (fromIndex < LIFECYCLE.length - 1) {
+    statusOptions.push({
+      value: LIFECYCLE[fromIndex + 1],
+      label: ORDER_STATUS_LABELS[LIFECYCLE[fromIndex + 1]],
+      hint: "next",
+    });
+  }
+  statusOptions.push({
+    value: "cancelled",
+    label: "Cancel order",
+  });
+
   return (
     <div className="flex flex-col items-stretch gap-3 sm:items-end">
-      {!isTerminal && (() => {
-        const fromIndex = LIFECYCLE.indexOf(status as (typeof LIFECYCLE)[number]);
-        return (
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value=""
-              onChange={(e) => {
-                const newStatus = e.target.value as OrderStatus;
-                if (newStatus) {
-                  setStatusModal(newStatus);
-                }
-              }}
-              disabled={busy}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              aria-label="Update order status"
-            >
-              <option value="">Update status</option>
-              {fromIndex > 0 && (
-                <option value={LIFECYCLE[fromIndex - 1]}>
-                  {ORDER_STATUS_LABELS[LIFECYCLE[fromIndex - 1]]} (previous)
-                </option>
-              )}
-              <option value="" disabled className="font-semibold">
-                {ORDER_STATUS_LABELS[status]} (current)
-              </option>
-              {fromIndex < LIFECYCLE.length - 1 && (
-                <option value={LIFECYCLE[fromIndex + 1]}>
-                  {ORDER_STATUS_LABELS[LIFECYCLE[fromIndex + 1]]} (next)
-                </option>
-              )}
-              <option value="cancelled">Cancel order</option>
-            </select>
-          </div>
-        );
-      })()}
+      {!isTerminal && (
+        <StatusDropdown
+          label="Update status"
+          options={statusOptions}
+          busy={busy}
+          onSelect={(v) => setStatusModal(v as OrderStatus)}
+        />
+      )}
 
       {isTerminal && (
         <span className="text-xs font-medium text-muted-foreground">
@@ -137,18 +126,13 @@ export function OrderStatusActions({
         );
       })()}
 
+      {/* Toast notification */}
       {toast && (
-        <div
-          role="status"
-          className={cn(
-            "flex items-start gap-3 rounded-lg border px-3 py-2 text-sm font-medium",
-            toast.tone === "error"
-              ? "border-destructive/40 bg-destructive/10 text-destructive"
-              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-          )}
-        >
-          <span>{toast.message}</span>
-        </div>
+        <Toast
+          message={toast.message}
+          tone={toast.tone}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );
