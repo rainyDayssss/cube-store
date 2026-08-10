@@ -78,6 +78,11 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Suppress native browser password-reveal icons so the custom toggle is the only one. */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
   html body[data-scroll-locked] {
     overflow: clip !important;
     margin-right: 0 !important;
