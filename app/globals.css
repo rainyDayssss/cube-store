@@ -79,6 +79,7 @@
     @apply bg-background text-foreground;
   }
   html body[data-scroll-locked] {
+    overflow: clip !important;
     margin-right: 0 !important;
   }
   html .right-scroll-bar-position {
