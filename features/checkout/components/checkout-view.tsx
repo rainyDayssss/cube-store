@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import {
   CheckCircle2,
   ChevronLeft,
+  Download,
   Loader2,
   ShieldCheck,
   ShoppingCart,
@@ -15,6 +16,7 @@ import { cartCount, cartSubtotal, useCartStore, type CartItem } from "@/features
 import { useCartReconcile } from "@/features/cart/lib/use-cart-reconcile";
 import { type PaymentMethod } from "@/features/checkout/lib/checkout";
 import { submitCheckout, type CheckoutActionResponse } from "@/features/checkout/actions";
+import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +75,9 @@ export function CheckoutView() {
     totalAmount: number;
     count: number;
     lines: CartItem[];
+    fullName: string;
+    deliveryAddress: string;
+    paymentMethod: PaymentMethod;
   } | null>(null);
 
   const subtotal = cartSubtotal(items);
@@ -131,6 +136,9 @@ export function CheckoutView() {
           totalAmount: response.totalAmount,
           count,
           lines: snapshot,
+          fullName: fields.fullName.trim(),
+          deliveryAddress: fields.deliveryAddress.trim(),
+          paymentMethod: fields.paymentMethod,
         });
         clearCart(); // success: the cart is spent
         return;
@@ -517,10 +525,11 @@ function ConfirmationModal({
   confirmation,
   onClose,
 }: {
-  confirmation: { orderNumber: string; totalAmount: number; count: number; lines: CartItem[] };
+  confirmation: { orderNumber: string; totalAmount: number; count: number; lines: CartItem[]; fullName: string; deliveryAddress: string; paymentMethod: PaymentMethod };
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -534,6 +543,26 @@ function ConfirmationModal({
       document.body.style.overflow = "";
     };
   }, [onClose]);
+
+  async function handleDownloadReceipt() {
+    setDownloading(true);
+    try {
+      await downloadReceipt({
+        orderNumber: confirmation.orderNumber,
+        totalAmount: confirmation.totalAmount,
+        paymentMethod: confirmation.paymentMethod,
+        deliveryAddress: confirmation.deliveryAddress,
+        customerName: confirmation.fullName,
+        items: confirmation.lines.map((line) => ({
+          name: line.name,
+          quantity: line.quantity,
+          unitPrice: line.price,
+        })),
+      });
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -606,6 +635,17 @@ function ConfirmationModal({
 
           <Button asChild size="lg" className="mt-6 w-full">
             <Link href="/products">Continue shopping</Link>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="mt-2 w-full"
+            onClick={handleDownloadReceipt}
+            disabled={downloading}
+          >
+            <Download className="h-4 w-4" />
+            {downloading ? "Generating receipt…" : "Download receipt"}
           </Button>
           <button
             type="button"
