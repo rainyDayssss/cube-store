@@ -156,9 +156,9 @@ export function CheckoutView() {
   // Not hydrated yet: show a skeleton so the badge and totals never flash wrong.
   if (!hasHydrated) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-5 py-10">
+      <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-5">
         <div className="h-8 w-40 animate-shimmer rounded-md" />
-        <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
+        <div className="mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[1fr_360px]">
           <div className="h-96 animate-shimmer rounded-xl" />
           <div className="h-64 animate-shimmer rounded-xl" />
         </div>
@@ -167,7 +167,7 @@ export function CheckoutView() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-5 py-10">
+    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-5">
       <Link
         href="/cart"
         className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -183,10 +183,10 @@ export function CheckoutView() {
       {items.length === 0 ? (
         <EmptyCheckout />
       ) : (
-        <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
+        <div className="mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[1fr_360px]">
           {/* Left: guest details form */}
           <form onSubmit={handleSubmit} noValidate className="min-w-0 space-y-6">
-            <section className="rounded-xl border border-border bg-card p-5">
+            <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 Your details
               </h2>
@@ -275,7 +275,7 @@ export function CheckoutView() {
               </div>
             </section>
 
-            <section className="rounded-xl border border-border bg-card p-5">
+            <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 Payment method
               </h2>
@@ -290,7 +290,7 @@ export function CheckoutView() {
                     <label
                       key={option.value}
                       className={cn(
-                        "flex cursor-pointer flex-col gap-1 rounded-lg border p-3 transition-colors",
+                        "flex cursor-pointer flex-col gap-1 rounded-lg border p-2.5 transition-colors sm:p-3",
                         active
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/40",
@@ -378,14 +378,14 @@ export function CheckoutView() {
           </form>
 
           {/* Right: order summary */}
-          <aside className="h-fit rounded-xl border border-border bg-card p-5 lg:sticky lg:top-24">
+          <aside className="h-fit min-w-0 overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5 lg:sticky lg:top-24">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Order summary
             </h2>
             <ul className="mt-4 space-y-3">
               {items.map((item) => (
                 <li key={item.id} className="flex items-center gap-3">
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-md border border-border bg-muted sm:h-14 sm:w-14">
                     {/* eslint-disable-next-line @next/next/no-img-element -- remote images from seed/Storage */}
                     <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
                     <span className="absolute bottom-0 right-0 rounded-tl-md bg-background/90 px-1 text-[10px] font-semibold tabular-nums">
@@ -580,7 +580,7 @@ function ConfirmationModal({
         tabIndex={-1}
         className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-background shadow-2xl outline-none"
       >
-        <div className="border-b border-border p-6 text-center">
+        <div className="border-b border-border p-4 text-center sm:p-6">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10">
             <CheckCircle2 className="h-8 w-8 text-emerald-700 dark:text-emerald-400" />
           </div>
@@ -592,12 +592,12 @@ function ConfirmationModal({
           </p>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="rounded-lg border border-dashed border-border bg-muted/40 px-4 py-3 text-center">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Order number
             </p>
-            <p className="mt-0.5 font-mono text-lg font-bold tracking-tight">
+            <p className="mt-0.5 break-all font-mono text-lg font-bold tracking-tight">
               {confirmation.orderNumber}
             </p>
           </div>
