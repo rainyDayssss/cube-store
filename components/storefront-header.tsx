@@ -37,6 +37,12 @@ export function StorefrontHeader() {
           >
             Products
           </Link>
+          <Link
+            href="/track"
+            className="relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Track Order
+          </Link>
         </nav>
 
         <div className="ml-auto flex items-center gap-1">

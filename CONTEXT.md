@@ -56,3 +56,11 @@ _Avoid_: Stage, phase
 **Order number**:
 The unique human-readable identifier `ORD-YYYYMMDD-XXXX` generated at checkout (per-day counter, server-side).
 _Avoid_: Tracking number, reference
+
+**Order tracking**:
+A customer-facing lookup of order status by order number, requiring no authentication. Exposes limited order data (status, items, total) through a SECURITY DEFINER function.
+_Avoid_: Order lookup, order search
+
+**Receipt**:
+A downloadable PDF proof of purchase generated from order data, containing the store name, order number, date, items with prices, customer details, delivery address, and payment method.
+_Avoid_: Invoice, ticket, confirmation slip

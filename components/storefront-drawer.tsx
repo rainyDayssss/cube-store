@@ -10,6 +10,7 @@ import { CubeFace } from "@/components/cube-face";
 const drawerLinks = [
   { href: "/", label: "Home" },
   { href: "/products", label: "Products" },
+  { href: "/track", label: "Track Order" },
   { href: "/cart", label: "Cart" },
 ];
 
